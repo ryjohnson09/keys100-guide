@@ -289,6 +289,7 @@
   const fullLine = ROUTE.map((p) => [p[0], p[1]]);
   const raceLine = segment(START, 0);
   const raceBounds = L.latLngBounds(raceLine);
+  map.fitBounds(raceBounds, { padding: [40, 40] }); // initial view before layers are added; refined at init
   L.polyline(fullLine, { color: "#ffffff", weight: 2, opacity: 0.35, dashArray: "4 6", interactive: false }).addTo(map);
   L.polyline(raceLine, { color: "#06182a", weight: 8, opacity: 0.45, interactive: false }).addTo(map);
   L.polyline(raceLine, { color: "#ffffff", weight: 3.5, opacity: 0.95, interactive: false }).addTo(map);
@@ -330,10 +331,13 @@
       l.marker.setRadius(far ? Math.max(2.5, l.baseR - 3) : chId && on ? l.baseR + 2 : l.baseR);
     });
   }
-  map.on("zoomend", () => {
+  // Defer to the next tick: during the very first setView, zoomend fires before the SVG renderer has
+  // bounds, and touching circle markers then makes Leaflet throw (seen on wide screens, where the
+  // 50 mile / 50K course opens at zoom >= 11).
+  map.on("zoomend", () => setTimeout(() => {
     emphasize(emphasized);
     if (map.getZoom() >= 11) detailLayer.addTo(map); else detailLayer.remove();
-  });
+  }, 0));
 
   const cutLayer = L.layerGroup();
   if (S.race === "100") window.CUTOFFS.forEach((c, i) => {
