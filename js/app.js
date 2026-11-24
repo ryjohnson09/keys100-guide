@@ -84,6 +84,8 @@
     return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
   }
   const mmLatLng = (mm) => distToLatLng(mmToDist(mm));
+  // verified waypoints carry their own coordinates (ll); everything else is placed by mile marker
+  const locLL = (l) => l.ll || mmLatLng(l.mm);
   function segment(fromMM, toMM) {
     const dFrom = mmToDist(Math.min(fromMM, 99.8)), dTo = mmToDist(Math.max(toMM, 0));
     const pts = [distToLatLng(dFrom)];
@@ -198,7 +200,7 @@
       <div class="card card-intro"><p class="kicker">Mile by mile</p><h2>Your course</h2>
       <p>${CH.length} sections from ${R.startPlace} to Key West. Each one starts with what can get you penalized, then lists its stops.</p>
       <div class="legend">${legend.map(([k, t]) => `<span><i class="lg ${k}"></i>${t}</span>`).join("")}</div>
-      <p class="muted">Pins are placed by mile marker, so they're approximate. Follow the written directions.</p></div></div>`;
+      <p class="muted">Most pins are matched to the actual place. Pins marked "approx." are placed by mile marker. On the ground, follow the written directions.</p></div></div>`;
     const chapters = CH.map((c, i) => {
       const alerts = c.alerts.filter((a) => fits(a[2]));
       const items = LOC.filter((l) => l.chapter === c.id && l.kind !== "land").sort((a, b) => b.mm - a.mm);
@@ -308,12 +310,12 @@
   };
   const DETAIL = new Set(["warn", "cross"]);
   const markerLayer = L.layerGroup().addTo(map), detailLayer = L.layerGroup();
-  const popupHtml = (l) => { const d = detailFor(l); return `<div class="pop-mm">MM ${l.label}</div><div class="pop-title">${l.title}</div>${d ? `<div>${d}</div>` : ""}${l.next && !runnerOnly ? `<div class="pop-next">Next option: ${l.next} mi</div>` : ""}`; };
+  const popupHtml = (l) => { const d = detailFor(l); return `<div class="pop-mm">MM ${l.label}</div><div class="pop-title">${l.title}</div>${d ? `<div>${d}</div>` : ""}${l.next && !runnerOnly ? `<div class="pop-next">Next option: ${l.next} mi</div>` : ""}${l.ll ? "" : '<div class="pop-next">Pin approx. (placed by mile marker)</div>'}`; };
   LOC.forEach((l) => {
     const s = STYLE[l.kind];
     if (!s) return;
     l.baseR = s[0];
-    l.marker = L.circleMarker(mmLatLng(l.mm), { radius: s[0], color: s[2], weight: 2, fillColor: s[1], fillOpacity: 1 })
+    l.marker = L.circleMarker(locLL(l), { radius: s[0], color: s[2], weight: 2, fillColor: s[1], fillOpacity: 1 })
       .bindPopup(popupHtml(l), { maxWidth: 290, autoPanPaddingTopLeft: [20, topbarH() + 10] });
     (DETAIL.has(l.kind) ? detailLayer : markerLayer).addLayer(l.marker);
   });
@@ -412,7 +414,7 @@
     if (!li) return;
     const l = LOC[+li.dataset.id];
     setExplore(true, true);
-    map.flyTo(mmLatLng(l.mm), 15, { duration: 1.1 });
+    map.flyTo(locLL(l), 15, { duration: 1.1 });
     if (l.marker) setTimeout(() => { detailLayer.addTo(map); l.marker.openPopup(); }, 1150);
   });
   main.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.classList.contains("stop")) e.target.click(); });
