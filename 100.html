@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>KEYS100 100 mile Guide</title>
+  <meta name="description" content="Your personal KEYS100 100 mile guide: course, meet-ups, cutoffs and rules, filtered for runners or crew." />
+  <meta name="theme-color" content="#0f2233" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-race="100">
+  <div id="map" aria-label="Course map"></div>
+  <div class="map-scrim" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="KEYS100 guide home">
+      <span class="logo"><b style="color:var(--orange)">K</b><b style="color:var(--pink)">E</b><b style="color:var(--teal)">Y</b><b style="color:var(--blue-l)">S</b><b style="color:var(--purple-l)">1</b><b style="color:var(--orange)">0</b><b style="color:var(--magenta)">0</b></span>
+    </a>
+    <div class="hud" aria-live="polite">
+      <div class="hud-label" id="hudLabel"></div>
+      <div class="hud-bar"><div class="hud-fill" id="hudFill"></div></div>
+    </div>
+    <button class="prefs-btn" id="prefsBtn" data-open-setup aria-label="Change your guide settings"></button>
+    <nav class="jump" aria-label="Sections">
+      <a href="#weekend">Weekend</a><a href="#rules">Rules</a><a href="#course">Course</a><a href="#planner">Planner</a>
+    </nav>
+  </header>
+  <main id="guide"></main>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="js/route.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/content.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

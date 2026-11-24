@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>KEYS100 Crew Guide</title>
+  <meta name="description" content="Build your own KEYS100 ultramarathon guide: pick your race and role, and see only what applies to you." />
+  <meta name="theme-color" content="#0f2233" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="landing">
+  <div id="map" aria-hidden="true"></div>
+  <div class="map-scrim" aria-hidden="true"></div>
+
+  <main class="land-wrap">
+    <form class="card land-card" id="setup" action="100.html">
+      <p class="eyebrow">Ultramarathon · Florida Keys</p>
+      <h1 class="land-title">KEYS<span>100</span></h1>
+      <p class="lede">Key Largo to Key West, run on the Overseas Highway. Tell us who you are and you'll get a scroll-through guide with only the course notes, meet-ups and rules that apply to you.</p>
+
+      <fieldset><legend>1 · Which race?</legend><div class="opts">
+        <label class="opt"><input type="radio" name="race" value="100" checked><span><b>100 mile</b><small>Key Largo · 32h</small></span></label>
+        <label class="opt"><input type="radio" name="race" value="50"><span><b>50 mile</b><small>Marathon · 20h</small></span></label>
+        <label class="opt"><input type="radio" name="race" value="50k"><span><b>50K</b><small>Big Pine · 12h</small></span></label>
+      </div></fieldset>
+
+      <fieldset><legend>2 · I am…</legend><div class="opts">
+        <label class="opt"><input type="radio" name="role" value="runner"><span><b>Runner</b><small>route, rules, cutoffs</small></span></label>
+        <label class="opt"><input type="radio" name="role" value="crew" checked><span><b>Crew / driver</b><small>parking, meet-ups</small></span></label>
+        <label class="opt"><input type="radio" name="role" value="all"><span><b>Both</b><small>everything</small></span></label>
+      </div></fieldset>
+
+      <fieldset><legend>3 · Racing as…</legend><div class="opts">
+        <label class="opt"><input type="radio" name="team" value="solo" checked><span><b>Solo runner</b><small>with a crew</small></span></label>
+        <label class="opt"><input type="radio" name="team" value="team"><span><b>Relay team</b><small>exchanges</small></span></label>
+        <label class="opt"><input type="radio" name="team" value="all"><span><b>Both</b><small>everything</small></span></label>
+      </div></fieldset>
+
+      <button class="btn big" type="submit">Show my guide →</button>
+      <p class="fine">Unofficial companion to the official 2026 KEYS100 Race Guide. Your choices are remembered on this device, and you can change them any time from the top bar.</p>
+    </form>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="js/route.js"></script>
+  <script src="js/content.js"></script>
+  <script>
+  (function () {
+    const form = document.getElementById("setup");
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem("k100:prefs")); } catch (e) { /* ignore */ }
+    if (saved) ["race", "role", "team"].forEach((k) => {
+      const el = form.querySelector(`input[name=${k}][value="${saved[k]}"]`); if (el) el.checked = true;
+    });
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const f = new FormData(form), race = f.get("race"), role = f.get("role"), team = f.get("team");
+      try { localStorage.setItem("k100:prefs", JSON.stringify({ race, role, team })); } catch (err) { /* ignore */ }
+      location.href = `${window.RACES[race].page}?role=${role}&team=${team}`;
+    });
+
+    // decorative map: the whole course, highlighting the chosen race
+    const map = L.map("map", { zoomControl: false, attributionControl: true, dragging: false, scrollWheelZoom: false,
+      doubleClickZoom: false, touchZoom: false, keyboard: false, boxZoom: false, tap: false, zoomSnap: 0.25 });
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      { maxZoom: 19, attribution: "Imagery © Esri, Maxar, Earthstar Geographics" }).addTo(map);
+    const all = window.ROUTE.map((p) => [p[0], p[1]]);
+    L.polyline(all, { color: "#06182a", weight: 8, opacity: 0.4 }).addTo(map);
+    L.polyline(all, { color: "#fff", weight: 3, opacity: 0.9 }).addTo(map);
+    const hi = L.polyline([], { color: "#f7941d", weight: 5 }).addTo(map);
+    const START_D = { "100": 99, "50": 49.7, "50k": 31.0 }; // approx route miles from finish
+    function show() {
+      const race = new FormData(form).get("race");
+      hi.setLatLngs(window.ROUTE.filter((p) => p[2] <= START_D[race]).map((p) => [p[0], p[1]]));
+    }
+    const wide = window.matchMedia("(min-width: 900px)").matches;
+    map.fitBounds(L.latLngBounds(all), wide
+      ? { paddingTopLeft: [Math.min(620, window.innerWidth * 0.5), 40], paddingBottomRight: [40, 40] }
+      : { padding: [20, 20] });
+    form.addEventListener("change", show);
+    show();
+  })();
+  </script>
+</body>
+</html>
