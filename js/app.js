@@ -152,7 +152,8 @@
     const body = v === "cutoffs" ? clockHtml() : typeof w.html === "function" ? w.html(S) : w.html;
     const pins = (w.pins || []).filter(Boolean);
     if (pins.length) attrs += ` data-pins='${esc(JSON.stringify(pins)).replace(/'/g, "&#39;")}'`;
-    return `<div class="step" ${attrs}><div class="card"><p class="kicker">${w.kicker}</p><h2>${w.title}</h2>${prune(body)}</div></div>`;
+    const venues = showNav && pins.length ? `<div class="venue-nav"><p class="venue-nav-h">Directions</p>${pins.map((p) => `<div class="venue-nav-item"><b>${esc(p.label.split(" · ").pop())}</b>${navHtml(p.ll, false, true)}</div>`).join("")}</div>` : "";
+    return `<div class="step" ${attrs}><div class="card"><p class="kicker">${w.kicker}</p><h2>${w.title}</h2>${prune(body)}${venues}</div></div>`;
   }
 
   function rulesPanel() {
@@ -188,11 +189,26 @@
     (l.kind === "indiv" || (l.on || "").includes("solo") ? '<span class="chip indiv">SOLO CREW</span>' : "");
   const detailFor = (l) => (runnerOnly ? l.rtext || "" : l.text);
 
+  // ---- "get me there" buttons for crews: Google Maps, Waze, copy coordinates
+  const showNav = S.role !== "runner";
+  const NAV_KINDS = new Set(["meet", "team", "indiv", "m50", "m100", "start", "finish"]);
+  const navigable = (l) => showNav && (NAV_KINDS.has(l.kind) || (l.kind === "timing" && l.meet) || l.nav);
+  const fmtLL = (ll) => `${(+ll[0]).toFixed(6)}, ${(+ll[1]).toFixed(6)}`;
+  function navHtml(ll, approx, compact) {
+    const q = `${(+ll[0]).toFixed(6)},${(+ll[1]).toFixed(6)}`;
+    return `<div class="nav-row${compact ? " compact" : ""}">
+      <a class="nav-btn gmaps" href="https://www.google.com/maps/dir/?api=1&amp;destination=${q}&amp;travelmode=driving" target="_blank" rel="noopener">Google Maps</a>
+      <a class="nav-btn waze" href="https://waze.com/ul?ll=${q}&amp;navigate=yes" target="_blank" rel="noopener">Waze</a>
+      <button type="button" class="nav-btn copy" data-copy="${fmtLL(ll)}" aria-label="Copy coordinates ${fmtLL(ll)}">Copy</button>
+      ${approx ? '<span class="nav-approx" title="Placed by mile marker, not verified on the map">approx.</span>' : ""}</div>`;
+  }
+  const locNav = (l, compact) => (navigable(l) ? navHtml(locLL(l), !l.ll, compact) : "");
+
   function stopLi(l) {
     const d = detailFor(l);
     return `<li class="stop k-${l.kind} ${MINOR.has(l.kind) ? "minor" : ""}" data-id="${l.id}" tabindex="0">
       <span class="mm">${l.label}</span>
-      <div><div class="t">${l.title}${chipsFor(l)}</div>${d ? `<div class="d">${d}</div>` : ""}${l.next && !runnerOnly ? `<div class="n">Next option: ${l.next} mi</div>` : ""}</div></li>`;
+      <div><div class="t">${l.title}${chipsFor(l)}</div>${d ? `<div class="d">${d}</div>` : ""}${l.next && !runnerOnly ? `<div class="n">Next option: ${l.next} mi</div>` : ""}${locNav(l, true)}</div></li>`;
   }
 
   function courseSection() {
@@ -313,7 +329,7 @@
   };
   const DETAIL = new Set(["warn", "cross"]);
   const markerLayer = L.layerGroup().addTo(map), detailLayer = L.layerGroup();
-  const popupHtml = (l) => { const d = detailFor(l); return `<div class="pop-mm">MM ${l.label}</div><div class="pop-title">${l.title}</div>${d ? `<div>${d}</div>` : ""}${l.next && !runnerOnly ? `<div class="pop-next">Next option: ${l.next} mi</div>` : ""}${l.ll ? "" : '<div class="pop-next">Pin approx. (placed by mile marker)</div>'}`; };
+  const popupHtml = (l) => { const d = detailFor(l); return `<div class="pop-mm">MM ${l.label}</div><div class="pop-title">${l.title}</div>${d ? `<div>${d}</div>` : ""}${l.next && !runnerOnly ? `<div class="pop-next">Next option: ${l.next} mi</div>` : ""}${l.ll ? "" : '<div class="pop-next">Pin approx. (placed by mile marker)</div>'}${locNav(l)}`; };
   LOC.forEach((l) => {
     const s = STYLE[l.kind];
     if (!s) return;
@@ -345,11 +361,12 @@
   function showVenues(pins) {
     venueLayer.clearLayers();
     map.getContainer().classList.toggle("has-venues", pins.length > 0);
-    pins.forEach((p, i) => L.marker(p.ll, {
+    pins.forEach((p, i) => { const m = L.marker(p.ll, {
       keyboard: false, riseOnHover: true, zIndexOffset: 2000 - i * 100, // first label stays on top
       icon: L.divIcon({ className: "", iconSize: null, iconAnchor: [11, 30],
         html: `<div class="venue-pin${i % 2 ? " alt" : ""}"><span class="vp-dot" aria-hidden="true"></span><span class="vp-lbl">${esc(p.label)}</span></div>` }),
-    }).addTo(venueLayer));
+    }).addTo(venueLayer);
+      m.bindPopup(`<div class="pop-title">${esc(p.label)}</div>${showNav ? navHtml(p.ll, false) : ""}`, { maxWidth: 290 }); });
   }
   const cutLayer = L.layerGroup();
   if (S.race === "100") window.CUTOFFS.forEach((c, i) => {
@@ -432,6 +449,7 @@
   document.querySelectorAll(".panel").forEach((p) => panelIo.observe(p));
 
   main.addEventListener("click", (e) => {
+    if (e.target.closest(".nav-row")) return; // directions / copy buttons
     const li = e.target.closest(".stop");
     if (!li) return;
     const l = LOC[+li.dataset.id];
@@ -440,6 +458,33 @@
     if (l.marker) setTimeout(() => { detailLayer.addTo(map); l.marker.openPopup(); }, 1150);
   });
   main.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.classList.contains("stop")) e.target.click(); });
+
+  // ================================================================ copy coordinates
+  const toast = document.createElement("div");
+  toast.className = "copy-toast"; toast.setAttribute("role", "status");
+  document.body.appendChild(toast);
+  let toastT = null;
+  function say(msg) {
+    toast.textContent = msg; toast.classList.add("show");
+    clearTimeout(toastT); toastT = setTimeout(() => toast.classList.remove("show"), 2200);
+  }
+  async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); return true; } catch (e) { /* fall back below */ }
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = t; ta.setAttribute("readonly", ""); ta.style.cssText = "position:fixed;opacity:0;top:0;left:0";
+      document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, t.length);
+      const ok = document.execCommand("copy"); ta.remove(); return ok;
+    } catch (e) { return false; }
+  }
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-copy]");
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    const t = b.dataset.copy;
+    if (await copyText(t)) { say(`Copied ${t}: paste it into Google Maps or Waze`); b.classList.add("done"); setTimeout(() => b.classList.remove("done"), 1500); }
+    else say(`Couldn't copy. Coordinates: ${t}`);
+  });
 
   // ================================================================ explore mode
   // Hides the story and hands the map to the reader: drag, pinch, wheel, double-click.
@@ -717,7 +762,7 @@
       return `<tr class="k-${l.kind} ${MINOR.has(l.kind) || l.kind === "warn" || l.kind === "cross" ? "minor" : ""} ${c ? "cut-row" : ""}">
         <td><span class="mm">${l.label}</span></td><td>${runnerOnly ? "" : l.next || ""}</td>
         <td><div class="eta ${isNight(a) ? "night" : ""}">${time}<small>${day} · +${fmtDur(a - startAbs)}</small></div></td>
-        <td><div class="t">${l.title}${chipsFor(l)}</div>${d ? `<div class="d">${d}</div>` : ""}${cutHtml}</td></tr>`;
+        <td><div class="t">${l.title}${chipsFor(l)}</div>${d ? `<div class="d">${d}</div>` : ""}${cutHtml}${locNav(l, true)}</td></tr>`;
     }).join("") : `<tr><td colspan="4" class="empty">No stops match.</td></tr>`;
   }
   function readPlanner() {
