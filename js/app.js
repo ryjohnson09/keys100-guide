@@ -150,6 +150,8 @@
     else if (v.mm != null) attrs = `data-mm="${v.mm}" data-zoom="${v.zoom}"`;
     else attrs = `data-latlng="${v.latlng.join(",")}" data-zoom="${v.zoom}"`;
     const body = v === "cutoffs" ? clockHtml() : typeof w.html === "function" ? w.html(S) : w.html;
+    const pins = (w.pins || []).filter(Boolean);
+    if (pins.length) attrs += ` data-pins='${esc(JSON.stringify(pins)).replace(/'/g, "&#39;")}'`;
     return `<div class="step" ${attrs}><div class="card"><p class="kicker">${w.kicker}</p><h2>${w.title}</h2>${prune(body)}</div></div>`;
   }
 
@@ -339,6 +341,16 @@
     if (map.getZoom() >= 11) detailLayer.addTo(map); else detailLayer.remove();
   }, 0));
 
+  const venueLayer = L.layerGroup().addTo(map);
+  function showVenues(pins) {
+    venueLayer.clearLayers();
+    map.getContainer().classList.toggle("has-venues", pins.length > 0);
+    pins.forEach((p, i) => L.marker(p.ll, {
+      keyboard: false, riseOnHover: true, zIndexOffset: 2000 - i * 100, // first label stays on top
+      icon: L.divIcon({ className: "", iconSize: null, iconAnchor: [11, 30],
+        html: `<div class="venue-pin${i % 2 ? " alt" : ""}"><span class="vp-dot" aria-hidden="true"></span><span class="vp-lbl">${esc(p.label)}</span></div>` }),
+    }).addTo(venueLayer));
+  }
   const cutLayer = L.layerGroup();
   if (S.race === "100") window.CUTOFFS.forEach((c, i) => {
     L.marker(mmLatLng(c.mm), { interactive: false, icon: L.divIcon({ className: "", iconSize: null, iconAnchor: [0, i === 0 ? -14 : 60],
@@ -378,6 +390,9 @@
     savePos(step);
     const ds = step.dataset;
     cutLayer.remove(); progressLine.setLatLngs([]); segLine.setLatLngs([]); emphasize(null);
+    const pins = ds.pins ? JSON.parse(ds.pins) : [];
+    const kick = ((step.querySelector(".kicker") || {}).textContent || "").split("·")[0].trim().toUpperCase();
+    showVenues(pins);
     const title = (step.querySelector("h2") || {}).textContent || "";
     if (ds.chapter) {
       const c = CH.find((x) => x.id === ds.chapter);
@@ -394,9 +409,12 @@
     } else if (ds.mm) {
       flyPoint(mmLatLng(+ds.mm), +ds.zoom || 14);
       setHud(`<b>MM ${ds.mm}</b>${title}`, 0);
+    } else if (pins.length > 1) {
+      flyBounds(L.latLngBounds(pins.map((p) => p.ll)).pad(0.35), +ds.zoom || 16);
+      setHud(`<b>${esc(kick)}</b>${esc(title)}`, 0);
     } else if (ds.latlng) {
       flyPoint(ds.latlng.split(",").map(Number), +ds.zoom || 14);
-      setHud(`<b>KEY WEST</b>${title}`, 1);
+      setHud(`<b>${esc(kick)}</b>${esc(title)}`, 0);
     }
   }
   const steps = Array.from(document.querySelectorAll(".step"));

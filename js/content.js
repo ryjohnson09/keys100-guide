@@ -12,6 +12,17 @@ window.RACES = {
     startPlace: "Lower Keys Chamber, Big Pine Key", startTime: "12:00pm waves" },
 };
 
+// Race-weekend venues, shown as labeled pins on the weekend steps.
+const V = {
+  holidayInn: { ll: [25.095688, -80.438332], label: "Packet pick-up · Holiday Inn tiki hut" },
+  klPark:     { ll: [25.092968, -80.438235], label: "100 mi start · Key Largo Community Park" },
+  gardenClub: { ll: [24.715776, -81.077786], label: "50 mi start · Marathon Garden Club" },
+  winnDixie:  { ll: [24.715572, -81.073412], label: "Crew parking · Winn‑Dixie lot" },
+  chamber:    { ll: [24.66942, -81.34764],   label: "50K start · Lower Keys Chamber" },
+  higgs:      { ll: [24.547141, -81.787533], label: "Finish · Higgs Beach" },
+  alamo:      { ll: [24.558434, -81.805237], label: "After-party · The Alamo, 4 Charles St" },
+};
+
 window.CUTOFFS = [
   { mm: 50, place: "Marathon Garden Club", time: "11:00pm Sat", hour: 23 },
   { mm: 39.9, place: "West end of Seven Mile Bridge", time: "2:00am Sun", hour: 26 },
@@ -25,15 +36,15 @@ window.WEEKEND = [
     html: `<p>There's <strong>no live orientation</strong>. The online video is <strong>required</strong> for every runner, crew member and team driver.</p>
       <div class="callout red"><b>Everyone is equally responsible.</b> Runners answer for their crew's actions, and crews answer for their runner's.</div>` },
 
-  { on: "100", view: { mm: 99.9, zoom: 15 }, kicker: "Friday, May 15 · Key Largo", title: "Packet pick-up",
+  { on: "100", view: { latlng: V.holidayInn.ll, zoom: 16 }, pins: [V.holidayInn, V.klPark], kicker: "Friday, May 15 · Key Largo", title: "Packet pick-up",
     html: `<ul class="timeline">
       <li><time>3:00–8:00pm</time><span>Under the tiki hut behind the Holiday Inn, Key Largo. <b>Required for 100-milers and 100-mile teams.</b></span></li>
       <li><time>4:00–5:30pm</time><span><b>Experts Clinic</b> inside the Holiday Inn. Highly recommended for first-timers. Also livestreamed on Facebook.</span></li></ul>` },
-  { on: "50 50k", view: { mm: 99.9, zoom: 15 }, kicker: "Friday, May 15 · Key Largo · optional", title: "Early pick-up & Experts Clinic",
+  { on: "50 50k", view: { latlng: V.holidayInn.ll, zoom: 16 }, pins: [V.holidayInn], kicker: "Friday, May 15 · Key Largo · optional", title: "Early pick-up & Experts Clinic",
     html: `<p>You can pick up your packet here Friday 3:00–8:00pm, <em>or</em> on Saturday at your own start.</p>
       <p class="muted">Experts Clinic, 4:00–5:30pm at the Holiday Inn, is also livestreamed on Facebook.</p>` },
 
-  { on: "100", view: { mm: 99.8, zoom: 16 }, kicker: "Saturday, May 16 · Key Largo Community Park", title: "Your start",
+  { on: "100", view: { latlng: V.klPark.ll, zoom: 16 }, pins: [V.klPark], kicker: "Saturday, May 16 · Key Largo Community Park", title: "Your start",
     html: `<ul class="timeline">
       <li><time>4:30am</time><span>Park bathrooms open.</span></li>
       <li><time>5:10am</time><span>Announcements &amp; anthem.</span></li>
@@ -41,14 +52,14 @@ window.WEEKEND = [
       <li><time>5:30am</time><span>Corral #1, then a group every five minutes.</span></li></ul>
       <div class="callout amber" data-on="runner"><b>Dark start:</b> before 6:00am wear front &amp; rear blinking lights; a headlamp is strongly urged. Off after 6:15am.</div>` },
 
-  { on: "50", view: { mm: 50, zoom: 15 }, kicker: "Saturday · Marathon Garden Club · MM 50", title: "Your start",
+  { on: "50", view: { latlng: V.gardenClub.ll, zoom: 16 }, pins: [V.gardenClub, V.winnDixie], kicker: "Saturday · Marathon Garden Club · MM 50", title: "Your start",
     html: `<ul class="timeline">
       <li><time>7:15–8:45am</time><span><b>Drive-by</b> pick-up at St. Columba Episcopal Church, behind the Garden Club (451 52nd St, Gulf).</span></li>
       <li><time>8:45am</time><span>Q&amp;A with the race director.</span></li>
       <li><time>9:00am</time><span>First wave, then every 5 minutes.</span></li></ul>
       <div class="callout red" data-on="crew"><b>Park ONLY in the Winn‑Dixie lot</b> across US‑1, past the light. Not Publix or CVS, and not the Garden Club. Walk across at the crosswalk.</div>` },
 
-  { on: "50k", view: { mm: 31, zoom: 15 }, kicker: "Saturday · Lower Keys Chamber · MM 31", title: "Your start",
+  { on: "50k", view: { latlng: V.chamber.ll, zoom: 16 }, pins: [V.chamber], kicker: "Saturday · Lower Keys Chamber · MM 31", title: "Your start",
     html: `<ul class="timeline">
       <li><time>10:30–11:50am</time><span>Pick-up &amp; check-in.</span></li>
       <li><time>11:45am</time><span>Q&amp;A with the race director.</span></li>
@@ -57,14 +68,14 @@ window.WEEKEND = [
 
   { view: "cutoffs", kicker: "The clock", title: "Time limits", html: null /* built by app */ },
 
-  { view: { mm: 0, zoom: 16 }, kicker: "Higgs Beach · Key West", title: "The finish",
+  { view: { latlng: V.higgs.ll, zoom: 16 }, pins: [V.higgs], kicker: "Higgs Beach · Key West", title: "The finish",
     html: `<ul class="timeline">
       <li><time>Sat 3–4pm</time><span>Finish opens. Food &amp; drinks for finishers and <em>registered</em> crew.</span></li>
       <li><time>Sun 3–4pm</time><span>Closes 32h after the last starter.</span></li></ul>
       <p class="muted" data-on="crew">Park near the finish. Meet your runner at White St (blinking light) to run the last 250 yards together.</p>
       <p class="muted">Friends &amp; family who aren't registered crew: start and finish only. No driving the course.</p>` },
 
-  { view: { latlng: [24.5536, -81.7985], zoom: 14 }, kicker: "Sunday, May 17 · Key West", title: "Awards & after-party",
+  { view: { latlng: [24.5536, -81.7985], zoom: 14 }, pins: [{ ll: V.higgs.ll, label: "Awards · Higgs Beach" }, V.alamo], kicker: "Sunday, May 17 · Key West", title: "Awards & after-party",
     html: (s) => `<ul class="timeline">
       <li><time>${s.race === "100" ? "12:00pm" : "11:00am"}</time><span>Your awards (${s.race === "100" ? "100 mile" : "50 mile &amp; 50K"}). Live music from 10:30am.</span></li>
       <li><time>4:00–7:00pm</time><span>After-party at "The Alamo" (formerly Smokin' Tuna), 4 Charles St.</span></li></ul>

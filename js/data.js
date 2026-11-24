@@ -125,7 +125,7 @@ window.LOCATIONS = [
     text: `Many commercial businesses in Marathon for food, fuel, supplies and bathrooms.` },
   { mm: 52.7, label: "52.7", next: "2.7", kind: "meet", meet: true, title: "Beall's Shopping Center",
     text: `Parking lot.` },
-  { mm: 50.0, label: "50.0", next: "50M teams 2.0 · 50M indiv 2.9 · 100M 3.1", kind: "timing", meet: true, t: true, rtext: `100 mile cutoff: leave before 11:00pm. Leaving after 4:30pm? Take night gear for Seven Mile Bridge.`,
+  { mm: 50.0, ll: [24.715776, -81.077786], label: "50.0", next: "50M teams 2.0 · 50M indiv 2.9 · 100M 3.1", kind: "timing", meet: true, t: true, rtext: `100 mile cutoff: leave before 11:00pm. Leaving after 4:30pm? Take night gear for Seven Mile Bridge.`,
     title: "TIMING — Marathon Garden Club · 50-mile start",
     text: `Meet-up for ALL 100-milers. Parking on site for 100-mile runners & teams. Bathrooms inside. Don't block access to the next-door business or park in their lot. 50-MILERS DO NOT PARK HERE for the race start: park in the WINN‑DIXIE LOT ONLY, just north of the traffic light on the OCEAN side, and walk across at the light. NO EXCEPTIONS. 100-mile cutoff: leave before 11:00pm. Leaving after 4:30pm? Night gear required for Seven Mile Bridge.` },
 
@@ -150,7 +150,7 @@ window.LOCATIONS = [
     text: `Paved lot, OCEAN side. Portable race toilets. No room? Continue ¼ mile, turn right onto the small road at the "Vehicles Only" sign and park down the hill. Carefully cross the highway to meet your runner.` },
   { mm: 33.0, label: "Big Pine Key", kind: "warn", on: "crew", title: "Key Deer habitat — obey the speed limit",
     text: `Entering protected habitat for an endangered species. DO NOT EXCEED THE SPEED LIMIT on Big Pine Key. Watch for the small deer — they frequently walk along the road.` },
-  { mm: 31.0, label: "31.0", next: "2.6", kind: "meet", meet: true, t: true, title: "Lower Keys Chamber of Commerce · 50K start",
+  { mm: 31.0, ll: [24.66942, -81.34764], label: "31.0", next: "2.6", kind: "meet", meet: true, t: true, title: "Lower Keys Chamber of Commerce · 50K start",
     text: `OCEAN side. Bathrooms. Don't block access or park directly in front of the Chamber building.` },
   { mm: 30.4, ll: [24.669209, -81.352636], label: "30.4", kind: "bath", title: "Tom Thumb — open all night", text: `Gas station and store.` },
 
