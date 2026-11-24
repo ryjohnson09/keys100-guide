@@ -294,15 +294,36 @@
     zoomControl: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false,
     keyboard: false, touchZoom: false, dragging: !L.Browser.mobile, tap: false, zoomSnap: 0.25,
   });
-  if (isDesktop()) L.control.zoom({ position: "topright" }).addTo(map);
   const esri = "https://server.arcgisonline.com/ArcGIS/rest/services/";
   const satellite = L.layerGroup([
     L.tileLayer(esri + "World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Imagery © Esri, Maxar, Earthstar Geographics" }),
     L.tileLayer(esri + "Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, opacity: 0.55 }),
     L.tileLayer(esri + "Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 }),
   ]).addTo(map);
-  const streets = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", { maxZoom: 19, subdomains: "abcd", attribution: "© OpenStreetMap contributors © CARTO" });
-  L.control.layers({ "Satellite": satellite, "Street map": streets }, null, { position: "topright" }).addTo(map);
+  const streets = L.tileLayer(esri + "World_Street_Map/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Map © Esri, HERE, Garmin, OpenStreetMap contributors" });
+  // simple Satellite | Map switch (remembered on this device)
+  const BASES = { sat: satellite, map: streets };
+  let base = store.get("base", "sat") === "map" ? "map" : "sat";
+  const BaseToggle = L.Control.extend({
+    options: { position: "topright" },
+    onAdd() {
+      const d = L.DomUtil.create("div", "leaflet-control base-toggle");
+      d.setAttribute("role", "group"); d.setAttribute("aria-label", "Map style");
+      d.innerHTML = '<button type="button" data-base="sat">Satellite</button><button type="button" data-base="map">Map</button>';
+      L.DomEvent.disableClickPropagation(d);
+      d.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setBase(b.dataset.base); });
+      return d;
+    },
+  });
+  const baseCtl = new BaseToggle().addTo(map);
+  function setBase(k) {
+    base = k; store.set("base", k);
+    Object.entries(BASES).forEach(([key, layer]) => { if (key === k) layer.addTo(map); else map.removeLayer(layer); });
+    baseCtl.getContainer().querySelectorAll("button").forEach((b) => {
+      b.classList.toggle("on", b.dataset.base === k); b.setAttribute("aria-pressed", b.dataset.base === k);
+    });
+  }
+  setBase(base);
 
   const fullLine = ROUTE.map((p) => [p[0], p[1]]);
   const raceLine = segment(START, 0);
@@ -489,7 +510,6 @@
   // ================================================================ explore mode
   // Hides the story and hands the map to the reader: drag, pinch, wheel, double-click.
   const HANDLERS = ["dragging", "touchZoom", "scrollWheelZoom", "doubleClickZoom", "boxZoom", "keyboard"];
-  const mobileZoom = L.control.zoom({ position: "topright" });
   const exploreBtn = document.createElement("button");
   exploreBtn.className = "explore-btn";
   exploreBtn.type = "button";
@@ -510,7 +530,6 @@
     setBtn();
     if (on) {
       HANDLERS.forEach((h) => map[h] && map[h].enable());
-      if (!isDesktop()) mobileZoom.addTo(map);
       detailLayer.addTo(map);
       emphasize(null);
       map.closePopup();
@@ -520,7 +539,6 @@
     } else {
       HANDLERS.forEach((h) => map[h] && map[h].disable());
       if (!L.Browser.mobile) map.dragging.enable(); // desktop keeps simple dragging in story mode
-      mobileZoom.remove();
       map.closePopup();
       tip.classList.remove("show");
       if (map.getZoom() < 11) detailLayer.remove();

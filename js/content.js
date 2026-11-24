@@ -153,7 +153,7 @@ window.CHAPTERS = [
       ["info", "Your race starts at MM 31. First meet-up is MM 28.4.", "50k"],
       ["info", "Tom Thumb (MM 30.4) is open all night.", "100"],
     ] },
-  { id: "c9", from: 30, to: 23.2, title: "Torch Keys & Summerland", sub: "The last cutoff",
+  { id: "c9", from: 30, to: 23.2, title: "Torch Keys & Summerland", sub: "Little Torch to Summerland Key",
     alerts: [
       ["amber", "MM 28.4: use the dirt area off Barry Ave. Never the US‑1 shoulder.", "crew"],
       ["red", "CUTOFF: leave the Summerland Key timing station (MM 24.9) before 7:00am.", "100"],
