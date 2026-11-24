@@ -555,3 +555,12 @@ dialog.jump-dlg::backdrop { background: rgba(6,22,38,.55); backdrop-filter: blur
 .base-toggle button { border: 0; background: transparent; color: #fff; font: 700 12.5px var(--body); padding: 7px 13px; border-radius: 999px; cursor: pointer; }
 .base-toggle button.on { background: #fff; color: var(--ink); }
 .leaflet-touch .leaflet-control.base-toggle { border: 0; }
+
+/* ---------- Planner pace column ---------- */
+.stops td.pace { width: 74px; white-space: nowrap; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stops td.pace small { font-weight: 500; color: var(--muted); font-size: 11px; margin-left: 1px; }
+.eta .pace-m { display: none; }
+@media (max-width: 899px) {
+  .stops td.pace, .stops th:nth-child(4) { display: none; }
+  .eta .pace-m { display: block; color: var(--sea); font-weight: 700; }
+}

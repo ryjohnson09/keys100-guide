@@ -238,7 +238,7 @@
     return `<section class="panel" id="planner"><div class="panel-inner">
       <p class="eyebrow dark">Planner</p>
       <h2 class="panel-title">Every stop, with an ETA</h2>
-      <p class="panel-lede">Enter a start time and a goal finish to get rough arrival times${S.race === "100" ? ", with night and cutoffs flagged" : ""}. Most runners slow down late, so build in a buffer.</p>
+      <p class="panel-lede">Enter a start time and a goal finish to get rough arrival times and the pace each stretch needs${S.race === "100" ? ", with night and cutoffs flagged" : ""}. Most runners slow down late, so build in a buffer.</p>
       <form class="planner" id="plannerForm" onsubmit="return false">
         <label>Start time (Sat)<input type="time" id="pStart" /></label>
         <label>Goal finish<span class="hhmm"><input type="number" id="pHours" min="3" max="${R.limit}" aria-label="hours" />h
@@ -250,7 +250,7 @@
         <div class="seg" role="group" aria-label="Rows"><button data-rows="meet">Meet-ups</button><button data-rows="all">Everything</button></div>
         <input type="search" id="tSearch" placeholder="Search: bathrooms, timing, Publix…" aria-label="Search stops" />
       </div>
-      <div class="table-wrap"><table class="stops" id="stopsTable"><thead><tr><th>MM</th><th>Next</th><th>ETA</th><th>Location</th></tr></thead><tbody></tbody></table></div>
+      <div class="table-wrap"><table class="stops" id="stopsTable"><thead><tr><th>MM</th><th>Next</th><th>ETA</th><th title="Average pace needed over the stretch since the row above">Pace</th><th>Location</th></tr></thead><tbody></tbody></table></div>
     </div></section>`;
   }
 
@@ -751,10 +751,18 @@
     const [sh, sm] = (plan.start || R.start).split(":").map(Number);
     const startAbs = sh * 60 + sm;
     const total = Math.max(60, (+plan.h || 0) * 60 + (+plan.m || 0));
-    const f = +plan.fade, D = START, p = (2 * total) / (D * (2 + f));
-    const etaAt = (mm) => { const x = Math.max(0, D - mm); return startAbs + (x <= D / 2 ? x * p : (D / 2) * p + (x - D / 2) * (1 + f) * p); };
+    // Pace drifts linearly slower: pace(x) = a·(1 + c·x) min/mile, x = miles covered.
+    // c is chosen so the 2nd half averages (1 + f)× the 1st half; a so the total hits the goal.
+    const f = +plan.fade, D = START;
+    const c = (4 * f) / (D * (2 - f));
+    const a = total / (D * (1 + (c * D) / 2));
+    const elapsed = (x) => a * x + (a * c * x * x) / 2;
+    const paceAt = (x) => a * (1 + c * x);
+    const etaAt = (mm) => startAbs + elapsed(Math.max(0, D - mm));
+    const fmtPace = (m) => { const t = Math.round(m * 60); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
 
     const pills = [`<span class="pill">Finish ≈ <b>${fmtClock(startAbs + total)}</b></span>`,
+      `<span class="pill">Avg pace <b>${fmtPace(total / D)}</b>/mi${f ? ` · starts ${fmtPace(paceAt(0))} → ends ${fmtPace(paceAt(D))}` : ""}</span>`,
       total <= R.limit * 60 ? `<span class="pill good">Within the ${R.limit}h limit</span>` : `<span class="pill bad">Over the ${R.limit}h limit</span>`];
     let nf = null, nt = null;
     for (let mm = D; mm >= 0; mm -= 0.1) { const a = etaAt(mm); if (a >= 1170 && a < 1800) { if (nf === null) nf = mm; nt = mm; } }
@@ -773,15 +781,21 @@
       if (q && !(l.title + " " + l.text + " " + l.label + (l.t ? " bathroom toilet wc" : "") + " " + l.kind).toLowerCase().includes(q)) return false;
       return true;
     });
+    let prevX = null;
     $("stopsTable").querySelector("tbody").innerHTML = rows.length ? rows.map((l) => {
       const a = etaAt(l.mm), c = l.kind === "timing" && cut[l.mm], d = detailFor(l);
+      const x = Math.max(0, D - l.mm);
+      const legPace = prevX === null || x - prevX < 0.05 ? null : (elapsed(x) - elapsed(prevX)) / (x - prevX);
+      if (prevX === null || x - prevX >= 0.05) prevX = x;
+      const paceTxt = legPace ? `${fmtPace(legPace)}<small>/mi</small>` : (x < 0.05 ? '<small>start</small>' : '<small>same spot</small>');
       const cutHtml = c ? (c.hour * 60 - a >= 0 ? `<div class="cutflag ok">CUTOFF ${c.time.toUpperCase()} · ${fmtDur(c.hour * 60 - a)} spare</div>` : `<div class="cutflag bad">PAST ${c.time.toUpperCase()} CUTOFF</div>`) : "";
       const [day, time] = fmtClock(a).split(" ");
       return `<tr class="k-${l.kind} ${MINOR.has(l.kind) || l.kind === "warn" || l.kind === "cross" ? "minor" : ""} ${c ? "cut-row" : ""}">
         <td><span class="mm">${l.label}</span></td><td>${runnerOnly ? "" : l.next || ""}</td>
-        <td><div class="eta ${isNight(a) ? "night" : ""}">${time}<small>${day} · +${fmtDur(a - startAbs)}</small></div></td>
+        <td><div class="eta ${isNight(a) ? "night" : ""}">${time}<small>${day} · +${fmtDur(a - startAbs)}</small><small class="pace-m">${legPace ? `${fmtPace(legPace)}/mi pace` : ""}</small></div></td>
+        <td class="pace">${paceTxt}</td>
         <td><div class="t">${l.title}${chipsFor(l)}</div>${d ? `<div class="d">${d}</div>` : ""}${cutHtml}${locNav(l, true)}</td></tr>`;
-    }).join("") : `<tr><td colspan="4" class="empty">No stops match.</td></tr>`;
+    }).join("") : `<tr><td colspan="5" class="empty">No stops match.</td></tr>`;
   }
   function readPlanner() {
     Object.assign(plan, { start: $("pStart").value, h: $("pHours").value, m: $("pMins").value, fade: $("pFade").value });
