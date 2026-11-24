@@ -564,3 +564,4 @@ dialog.jump-dlg::backdrop { background: rgba(6,22,38,.55); backdrop-filter: blur
   .stops td.pace, .stops th:nth-child(4) { display: none; }
   .eta .pace-m { display: block; color: var(--sea); font-weight: 700; }
 }
+.eta small.leave { color: var(--ink-2); font-weight: 600; }

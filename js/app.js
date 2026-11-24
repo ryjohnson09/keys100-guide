@@ -238,11 +238,12 @@
     return `<section class="panel" id="planner"><div class="panel-inner">
       <p class="eyebrow dark">Planner</p>
       <h2 class="panel-title">Every stop, with an ETA</h2>
-      <p class="panel-lede">Enter a start time and a goal finish to get rough arrival times and the pace each stretch needs${S.race === "100" ? ", with night and cutoffs flagged" : ""}. Most runners slow down late, so build in a buffer.</p>
+      <p class="panel-lede">Enter a start time, a goal finish and your average time at each crew stop to get arrival times and the moving pace each stretch needs${S.race === "100" ? ", with night and cutoffs flagged" : ""}. Most runners slow down late, so build in a buffer.</p>
       <form class="planner" id="plannerForm" onsubmit="return false">
         <label>Start time (Sat)<input type="time" id="pStart" /></label>
         <label>Goal finish<span class="hhmm"><input type="number" id="pHours" min="3" max="${R.limit}" aria-label="hours" />h
           <input type="number" id="pMins" min="0" max="59" step="5" aria-label="minutes" />m</span></label>
+        <label>Avg min per crew stop<span class="hhmm"><input type="number" id="pStop" min="0" max="60" step="1" inputmode="numeric" aria-label="average minutes per crew stop" />min</span></label>
         <label>Pacing<select id="pFade"><option value="0">Even pace</option><option value="0.15">Some slow-down (+15%)</option><option value="0.3">Big slow-down (+30%)</option></select></label>
       </form>
       <div class="plan-summary" id="planSummary"></div>
@@ -734,8 +735,8 @@
 
   // ================================================================ planner
   const $ = (id) => document.getElementById(id);
-  const plan = Object.assign({ start: R.start, h: R.goalH, m: 0, fade: "0.15", rows: "meet" }, store.get("plan-" + S.race, {}));
-  $("pStart").value = plan.start; $("pHours").value = plan.h; $("pMins").value = plan.m; $("pFade").value = plan.fade;
+  const plan = Object.assign({ start: R.start, h: R.goalH, m: 0, stop: 3, fade: "0.15", rows: "meet" }, store.get("plan-" + S.race, {}));
+  $("pStart").value = plan.start; $("pHours").value = plan.h; $("pMins").value = plan.m; $("pFade").value = plan.fade; $("pStop").value = plan.stop;
 
   function fmtClock(a) {
     a = Math.round(a);
@@ -754,23 +755,39 @@
     // Pace drifts linearly slower: pace(x) = a·(1 + c·x) min/mile, x = miles covered.
     // c is chosen so the 2nd half averages (1 + f)× the 1st half; a so the total hits the goal.
     const f = +plan.fade, D = START;
+    // crew stops: every meet-up in this view between start and finish, at the average dwell time
+    const spm = Math.max(0, Math.min(60, +plan.stop || 0));
+    const stopXs = [];
+    LOC.filter((l) => l.meet && l.kind !== "start" && l.kind !== "finish" && l.mm < D - 0.05)
+      .map((l) => D - l.mm).sort((p, q) => p - q)
+      .forEach((x) => { if (!stopXs.length || x - stopXs[stopXs.length - 1] > 0.05) stopXs.push(x); });
+    const stopTotal = stopXs.length * spm;
+    const moving = Math.max(total - stopTotal, D * 4);           // never faster than 4 min/mi
+    const stopsBefore = (x) => stopXs.filter((s) => s < x - 0.05).length;
+    const isStopAt = (x) => stopXs.some((s) => Math.abs(s - x) <= 0.05);
     const c = (4 * f) / (D * (2 - f));
-    const a = total / (D * (1 + (c * D) / 2));
+    const a = moving / (D * (1 + (c * D) / 2));
     const elapsed = (x) => a * x + (a * c * x * x) / 2;
     const paceAt = (x) => a * (1 + c * x);
-    const etaAt = (mm) => startAbs + elapsed(Math.max(0, D - mm));
+    // arrival = moving time + every stop already made; leaving adds this stop's dwell
+    const etaAt = (mm) => { const x = Math.max(0, D - mm); return startAbs + elapsed(x) + stopsBefore(x) * spm; };
+    const leaveAt = (mm) => { const x = Math.max(0, D - mm); return etaAt(mm) + (isStopAt(x) ? spm : 0); };
     const fmtPace = (m) => { const t = Math.round(m * 60); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
 
-    const pills = [`<span class="pill">Finish ≈ <b>${fmtClock(startAbs + total)}</b></span>`,
-      `<span class="pill">Avg pace <b>${fmtPace(total / D)}</b>/mi${f ? ` · starts ${fmtPace(paceAt(0))} → ends ${fmtPace(paceAt(D))}` : ""}</span>`,
-      total <= R.limit * 60 ? `<span class="pill good">Within the ${R.limit}h limit</span>` : `<span class="pill bad">Over the ${R.limit}h limit</span>`];
+    const finishAbs = etaAt(0), finishDur = finishAbs - startAbs;   // equals the goal unless the stops don't fit
+    const pills = [`<span class="pill${finishDur > total + 1 ? " bad" : ""}">Finish ≈ <b>${fmtClock(finishAbs)}</b>${finishDur > total + 1 ? ` (${fmtDur(finishDur)}, slower than goal)` : ""}</span>`,
+      `<span class="pill">${spm ? "Moving pace" : "Avg pace"} <b>${fmtPace(moving / D)}</b>/mi${f ? ` · starts ${fmtPace(paceAt(0))} → ends ${fmtPace(paceAt(D))}` : ""}</span>`,
+      ...(spm ? [total - stopTotal < D * 4
+        ? `<span class="pill bad">${stopXs.length} stops × ${spm} min doesn't fit in the goal time</span>`
+        : `<span class="pill">⏱ ${stopXs.length} crew stops × ${spm} min = <b>${fmtDur(stopTotal)}</b> stopped</span>`] : []),
+      finishDur <= R.limit * 60 ? `<span class="pill good">Within the ${R.limit}h limit</span>` : `<span class="pill bad">Over the ${R.limit}h limit</span>`];
     let nf = null, nt = null;
     for (let mm = D; mm >= 0; mm -= 0.1) { const a = etaAt(mm); if (a >= 1170 && a < 1800) { if (nf === null) nf = mm; nt = mm; } }
     if (nf !== null) pills.push(`<span class="pill">☾ Saturday night ≈ MM ${nf.toFixed(0)} → ${nt <= 0.2 ? "finish" : nt.toFixed(0)}</span>`);
     if (S.race === "100") {
-      const bad = window.CUTOFFS.filter((c) => etaAt(c.mm) > c.hour * 60);
+      const bad = window.CUTOFFS.filter((c) => leaveAt(c.mm) > c.hour * 60);
       pills.push(bad.length ? `<span class="pill bad">Misses ${bad.length} cutoff${bad.length > 1 ? "s" : ""}</span>` : `<span class="pill good">Makes all 3 cutoffs</span>`);
-      if (etaAt(50) > 16.5 * 60) pills.push(`<span class="pill">Leaves MM 50 after 4:30pm: night gear</span>`);
+      if (leaveAt(50) > 16.5 * 60) pills.push(`<span class="pill">Leaves MM 50 after 4:30pm: night gear</span>`);
     }
     $("planSummary").innerHTML = pills.join("");
 
@@ -788,17 +805,18 @@
       const legPace = prevX === null || x - prevX < 0.05 ? null : (elapsed(x) - elapsed(prevX)) / (x - prevX);
       if (prevX === null || x - prevX >= 0.05) prevX = x;
       const paceTxt = legPace ? `${fmtPace(legPace)}<small>/mi</small>` : (x < 0.05 ? '<small>start</small>' : '<small>same spot</small>');
-      const cutHtml = c ? (c.hour * 60 - a >= 0 ? `<div class="cutflag ok">CUTOFF ${c.time.toUpperCase()} · ${fmtDur(c.hour * 60 - a)} spare</div>` : `<div class="cutflag bad">PAST ${c.time.toUpperCase()} CUTOFF</div>`) : "";
+      const lv = leaveAt(l.mm);
+      const cutHtml = c ? (c.hour * 60 - lv >= 0 ? `<div class="cutflag ok">LEAVE BY ${c.time.toUpperCase()} · ${fmtDur(c.hour * 60 - lv)} spare</div>` : `<div class="cutflag bad">LEAVES AFTER THE ${c.time.toUpperCase()} CUTOFF</div>`) : "";
       const [day, time] = fmtClock(a).split(" ");
       return `<tr class="k-${l.kind} ${MINOR.has(l.kind) || l.kind === "warn" || l.kind === "cross" ? "minor" : ""} ${c ? "cut-row" : ""}">
         <td><span class="mm">${l.label}</span></td><td>${runnerOnly ? "" : l.next || ""}</td>
-        <td><div class="eta ${isNight(a) ? "night" : ""}">${time}<small>${day} · +${fmtDur(a - startAbs)}</small><small class="pace-m">${legPace ? `${fmtPace(legPace)}/mi pace` : ""}</small></div></td>
+        <td><div class="eta ${isNight(a) ? "night" : ""}">${time}<small>${day} · +${fmtDur(a - startAbs)}</small>${spm && lv > a ? `<small class="leave">leave ${fmtClock(lv).split(" ")[1]}</small>` : ""}<small class="pace-m">${legPace ? `${fmtPace(legPace)}/mi pace` : ""}</small></div></td>
         <td class="pace">${paceTxt}</td>
         <td><div class="t">${l.title}${chipsFor(l)}</div>${d ? `<div class="d">${d}</div>` : ""}${cutHtml}${locNav(l, true)}</td></tr>`;
     }).join("") : `<tr><td colspan="5" class="empty">No stops match.</td></tr>`;
   }
   function readPlanner() {
-    Object.assign(plan, { start: $("pStart").value, h: $("pHours").value, m: $("pMins").value, fade: $("pFade").value });
+    Object.assign(plan, { start: $("pStart").value, h: $("pHours").value, m: $("pMins").value, fade: $("pFade").value, stop: $("pStop").value });
     store.set("plan-" + S.race, plan); renderPlanner();
   }
   $("plannerForm").addEventListener("input", readPlanner);
