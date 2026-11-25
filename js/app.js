@@ -152,7 +152,13 @@
     return h;
   }
 
-  function weekendStep(w) {
+  const val = (x) => (typeof x === "function" ? x(S) : x);
+  function glanceStep(list) {
+    const rows = list.map((w, i) => `<li><button type="button" class="glance-row" data-goto-wk="${i}"><time>${val(w.when)}</time><span>${val(w.glance)}</span><i aria-hidden="true">›</i></button></li>`).join("");
+    return `<div class="step" data-view="overview" data-hud="Race weekend"><div class="card"><p class="kicker">May 15–17 · ${R.name}</p><h2>Race weekend at a glance</h2>
+      <ul class="timeline glance">${rows}</ul><p class="muted">Tap a row for details, or keep scrolling.</p></div></div>`;
+  }
+  function weekendStep(w, i) {
     const v = w.view;
     let attrs = "";
     if (v === "overview") attrs = 'data-view="overview"';
@@ -163,7 +169,7 @@
     const pins = (w.pins || []).filter(Boolean);
     if (pins.length) attrs += ` data-pins='${esc(JSON.stringify(pins)).replace(/'/g, "&#39;")}'`;
     const venues = showNav && pins.length ? `<div class="venue-nav"><p class="venue-nav-h">Directions</p>${pins.map((p) => `<div class="venue-nav-item"><b>${esc(p.label.split(" · ").pop())}</b>${navHtml(p.ll, false, true)}</div>`).join("")}</div>` : "";
-    return `<div class="step" ${attrs}><div class="card"><p class="kicker">${w.kicker}</p><h2>${w.title}</h2>${prune(body)}${venues}</div></div>`;
+    return `<div class="step" data-wk="${i}" ${attrs}><div class="card"><p class="kicker">${w.kicker}</p><h2>${w.title}</h2>${prune(body)}${venues}</div></div>`;
   }
 
   function rulesPanel() {
@@ -265,7 +271,7 @@
     </div></section>`;
   }
 
-  main.innerHTML = `<section class="story" id="weekend">${heroStep()}${window.WEEKEND.filter((w) => fits(w.on)).map(weekendStep).join("")}</section>
+  main.innerHTML = `<section class="story" id="weekend">${heroStep()}${(() => { const wk = window.WEEKEND.filter((w) => fits(w.on)); return glanceStep(wk) + wk.map(weekendStep).join(""); })()}</section>
     ${rulesPanel()}${courseSection()}${plannerPanel()}
     <footer class="footer"><p><strong>Unofficial companion</strong> to the 2026 KEYS100 Race Guide by Ultra Sports, LLC. The official guide and race marshals have the final word. Vehicle questions: <a href="mailto:Marshal@ultrasportsllc.com">Marshal@ultrasportsllc.com</a>.</p>
     <p class="muted">Imagery © Esri &amp; contributors · Road geometry © OpenStreetMap contributors (OSRM).</p></footer>`;
@@ -701,6 +707,11 @@
     const id = a.getAttribute("href").slice(1);
     if (id === "weekend") scrollToStep(steps[1]); else if (id === "course") scrollToStep(document.querySelector("#course .step")); else scrollToPanel(id);
   }));
+
+  main.addEventListener("click", (e) => {
+    const g = e.target.closest("[data-goto-wk]");
+    if (g) scrollToStep(document.querySelector(`[data-wk="${g.dataset.gotoWk}"]`));
+  });
 
   // ---- arriving: honour #c8 / #mm-35 / #rules, otherwise offer to resume
   function restoreFromHash() {
