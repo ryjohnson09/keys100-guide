@@ -98,10 +98,20 @@
   const main = document.getElementById("guide");
   const fmtMM = (v) => (v < 0 ? "Finish" : v === 3.85 ? "3.8" : v === 99.8 ? "100" : String(Math.round(v)));
 
+  const meetCount = (() => { const xs = [];
+    LOC.filter((l) => l.meet && l.kind !== "start" && l.kind !== "finish" && l.mm < START - 0.05)
+      .forEach((l) => { if (!xs.some((m) => Math.abs(m - l.mm) <= 0.05)) xs.push(l.mm); });
+    return xs.length; })();
+  const meetLbl = S.team === "team" ? "meet-ups & exchanges" : "crew meet-ups";
+  const meetBox = [String(meetCount), meetLbl, S.role === "runner" ? "Where your crew can meet you" : "Each has directions in the Course section"];
+  // [big value, label, detail]
   const STATS = {
-    "100": [["100", "miles, MM 99.8 → 0"], ["32h", "time limit"], ["3", "interim cutoffs"], ["42", "islands, up to"]],
-    "50": [["50", "miles, MM 50 → 0"], ["20h", "time limit"], ["7", "miles of Seven Mile Bridge"], ["9am", "start, Marathon"]],
-    "50k": [["31", "miles, MM 31 → 0"], ["12h", "time limit"], ["12pm", "start, Big Pine Key"], ["0", "interim cutoffs"]],
+    "100": [["5:15am", "Sat start", "Key Largo, waves until 6:30"], ["32h", "time limit", "Counted from when you cross the start"],
+      ["3", "interim cutoffs", "First: leave MM 50 by 11pm Sat"], ["42", "islands", "Linked by bridges, Key Largo to Key West"]],
+    "50": [["9am", "Sat start", "Marathon Garden Club"], ["20h", "time limit", "No interim cutoffs"],
+      ["7 mi", "Seven Mile Bridge", "Starts about 3 miles in"], meetBox],
+    "50k": [["Noon", "Sat start", "Lower Keys Chamber, Big Pine Key"], ["12h", "time limit", "No interim cutoffs"],
+      ["7:30pm", "night rules start", "LED lights front and rear until 6am"], meetBox],
   };
   const LEDE = {
     "100": "100 miles of Overseas Highway, from Key Largo to Higgs Beach in Key West.",
@@ -116,7 +126,7 @@
         <h1>KEYS100<br><span>${R.name}</span></h1>
         <div class="who-chips"><span class="chip-lg">${ROLE_TXT[S.role]}</span><span class="chip-lg">${TEAM_TXT[S.team]}</span><button class="chip-edit" data-open-setup>Change</button></div>
         <p class="lede">${LEDE[S.race]} This page only shows what applies to you. Scroll, and the map follows the course.</p>
-        <dl class="stats">${STATS[S.race].map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join("")}</dl>
+        <dl class="stats">${STATS[S.race].map(([a, b, c]) => `<div><dt>${a}</dt><dd><b>${b}</b>${c ? `<small>${c}</small>` : ""}</dd></div>`).join("")}</dl>
         <p class="fine">From the official 2026 KEYS100 Race Guide (updated 04.22.2026). Check the official guide for changes. Mile markers count <strong>down</strong> to Key West. The <strong>OCEAN</strong> is on your left and the <strong>BAY</strong> on your right.</p>
         <div class="scroll-cue" aria-hidden="true">Scroll <span>↓</span></div>
       </div></div>`;
