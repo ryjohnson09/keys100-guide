@@ -387,6 +387,26 @@
   }
   setBase(base);
 
+  // ---- sun mode: high-contrast theme for reading a phone in bright sun (remembered on this device)
+  const sunBtn = document.createElement("button");
+  sunBtn.type = "button"; sunBtn.className = "sun-btn";
+  sunBtn.innerHTML = '<span aria-hidden="true">☀</span><span class="sun-lbl">Sun mode</span>';
+  document.getElementById("prefsBtn").before(sunBtn);
+  function setSun(on, initial) {
+    document.body.classList.toggle("sun", on);
+    sunBtn.setAttribute("aria-pressed", on);
+    sunBtn.title = on ? "Turn off sun mode" : "Sun mode: high contrast for bright light";
+    sunBtn.setAttribute("aria-label", sunBtn.title);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", on ? "#000000" : "#0f2233");
+    if (initial) return;
+    store.set("sun", on);
+    // the light street map reads far better in sun than dark satellite imagery
+    if (on) { store.set("baseBeforeSun", base); setBase("map"); }
+    else setBase(store.get("baseBeforeSun", "sat"));
+  }
+  sunBtn.addEventListener("click", () => setSun(!document.body.classList.contains("sun")));
+  setSun(!!store.get("sun", false), true);
+
   const fullLine = ROUTE.map((p) => [p[0], p[1]]);
   const raceLine = segment(START, 0);
   const raceBounds = L.latLngBounds(raceLine);

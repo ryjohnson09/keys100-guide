@@ -601,3 +601,41 @@ dialog.jump-dlg::backdrop { background: rgba(6,22,38,.55); backdrop-filter: blur
 .stops td.nxt small { display: block; font-size: 11.5px; line-height: 1.3; }
 .nx-m { display: none; }
 @media (max-width: 899px) { .nx-m { display: block; } }
+
+/* ---------------------------------------------------------------- sun mode (high contrast) */
+.sun-btn {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.1); color: #fff;
+  border-radius: 999px; padding: 5px 11px; font: 700 12.5px var(--body);
+}
+.sun-btn span[aria-hidden] { font-size: 16px; line-height: 1; color: var(--yellow); }
+.sun-btn:hover { background: rgba(255,255,255,.18); }
+.sun-btn[aria-pressed="true"] { background: var(--yellow); border-color: var(--yellow); color: #000; }
+.sun-btn[aria-pressed="true"] span[aria-hidden] { color: #000; }
+@media (max-width: 899px) { .sun-lbl { display: none; } .sun-btn { order: 2; margin-left: auto; padding: 5px 9px; } .sun-btn + .prefs-btn { margin-left: 0; } .topbar { column-gap: 8px; } .prefs-btn span { max-width: 150px; } }
+
+body.sun {
+  --ink: #000; --ink-2: #000; --muted: #1d2a36; --line: #6f7f8e; --sea: #00545e;
+  --sand: #fff; --shadow: 0 0 0 2px #000;
+}
+body.sun .topbar { background: #000; backdrop-filter: none; -webkit-backdrop-filter: none; border-bottom: 2px solid var(--yellow); }
+body.sun .hud-label, body.sun .jump a { opacity: 1; }
+body.sun .map-scrim { display: none; }
+body.sun .card { background: #fff; opacity: 1; border: 2px solid #000; box-shadow: 0 4px 0 rgba(0,0,0,.35); }
+body.sun .step .card { transform: none; }
+body.sun main { font-weight: 500; }
+body.sun .card p, body.sun .card li, body.sun .stop .d, body.sun .panel p, body.sun .stops td { color: #000; }
+body.sun .stop .d, body.sun .stop .n, body.sun .stops .d { font-size: 14.5px; }
+body.sun .stop .t, body.sun .stops .t { font-weight: 800; }
+body.sun .muted, body.sun .fine, body.sun small { color: #1d2a36 !important; }
+body.sun .stats div, body.sun .myplan, body.sun .plan-summary .pill, body.sun .rule, body.sun .pen-step { border: 2px solid #000; background: #fff; box-shadow: none; }
+body.sun .callout { background: #fff; border: 2px solid #000; border-left-width: 8px; }
+body.sun .callout.red { border-left-color: var(--red); }
+body.sun .callout.amber { border-left-color: var(--amber); }
+body.sun .alerts li { border: 2px solid #000; }
+body.sun .stop.picked, body.sun .stops tr.picked td { background: #fff3d6; }
+body.sun .pick-btn, body.sun .note-add, body.sun .nav-btn, body.sun .btn.ghost { border: 2px solid #000; color: #000; background: #fff; }
+body.sun .pick-btn.on { background: var(--orange); color: #000; }
+body.sun .eta small, body.sun .nx, body.sun .nx-plan { color: #000; }
+body.sun .stops thead th { background: #000; color: #fff; }
+body.sun .leaflet-popup-content-wrapper { border: 2px solid #000; color: #000; }
