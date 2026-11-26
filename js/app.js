@@ -64,6 +64,24 @@
   const isPicked = (k) => !!(my.stops[k] && my.stops[k].on);
   const noteOf = (k) => (my.stops[k] && my.stops[k].note) || "";
   const pickedLocs = () => LOC.filter((l) => pickable(l) && isPicked(l.key));
+  // ---- distance to the next meet-up (and the next stop in your plan); MM ≈ miles to the finish
+  const meetStops = LOC.filter(pickable).sort((a, b) => b.mm - a.mm);
+  const nextMeet = (mm) => meetStops.find((l) => l.mm < mm - 0.05) || null;
+  const nextPlanned = (mm) => meetStops.find((l) => l.mm < mm - 0.05 && isPicked(l.key)) || null;
+  const mi = (v) => `${Math.max(0, v).toFixed(1)} mi`;
+  const hasNext = (l) => pickable(l) || l.kind === "start" || l.kind === "timing";
+  function nextTxt(mm, withPlan) {
+    const n = nextMeet(mm);
+    let h = n ? `Next meet-up <b>${mi(mm - n.mm)}</b> · MM ${n.label}` : `Finish in <b>${mi(mm)}</b>`;
+    if (withPlan && pickedLocs().length) {
+      const p = nextPlanned(mm);
+      if (p !== n) h += p ? ` · <span class="nx-plan">next in our plan <b>${mi(mm - p.mm)}</b> · MM ${p.label}</span>` : ` · <span class="nx-plan">no more plan stops</span>`;
+      else if (p) h = `Next meet-up <span class="nx-plan">(in our plan)</span> <b>${mi(mm - n.mm)}</b> · MM ${n.label}`;
+    }
+    return h;
+  }
+  const nextLine = (l) => (hasNext(l) ? `<div class="n nx" data-nx="${l.mm}">→ ${nextTxt(l.mm, true)}</div>` : "");
+  const refreshNext = () => document.querySelectorAll(".nx[data-nx]").forEach((el) => (el.innerHTML = "→ " + nextTxt(+el.dataset.nx, true)));
   const sharedCode = location.hash.startsWith("#plan=") ? location.hash.slice(6) : null;
   if (sharedCode) history.replaceState(null, "", location.pathname + location.search);
   const CH = window.CHAPTERS.filter((c) => c.to < START - 0.5).map((c) => Object.assign({}, c, { from: Math.min(c.from, START) }));
@@ -244,7 +262,7 @@
     const d = detailFor(l);
     return `<li class="stop k-${l.kind} ${MINOR.has(l.kind) ? "minor" : ""}${isPicked(l.key) ? " picked" : ""}" data-id="${l.id}" tabindex="0">
       <span class="mm">${l.label}</span>
-      <div><div class="t">${l.title}${chipsFor(l)}</div>${d ? `<div class="d">${d}</div>` : ""}${l.next && !runnerOnly ? `<div class="n">Next option: ${l.next} mi</div>` : ""}${locNav(l, true)}${mineHtml(l)}</div></li>`;
+      <div><div class="t">${l.title}${chipsFor(l)}</div>${d ? `<div class="d">${d}</div>` : ""}${nextLine(l)}${locNav(l, true)}${mineHtml(l)}</div></li>`;
   }
 
   function courseSection() {
@@ -294,7 +312,7 @@
         <div class="seg" role="group" aria-label="Rows"><button data-rows="mine">Our plan</button><button data-rows="meet">Meet-ups</button><button data-rows="all">Everything</button></div>
         <input type="search" id="tSearch" placeholder="Search: bathrooms, timing, Publix…" aria-label="Search stops" />
       </div>
-      <div class="table-wrap"><table class="stops" id="stopsTable"><thead><tr><th>MM</th><th>Next</th><th>ETA</th><th title="Average pace needed over the stretch since the row above">Pace</th><th>Location</th></tr></thead><tbody></tbody></table></div>
+      <div class="table-wrap"><table class="stops" id="stopsTable"><thead><tr><th>MM</th><th title="Distance and time to the next meet-up, or to the next stop in your plan">Next</th><th>ETA</th><th title="Average pace needed over the stretch since the row above">Pace</th><th>Location</th></tr></thead><tbody></tbody></table></div>
     </div></section>`;
   }
 
@@ -394,7 +412,7 @@
   };
   const DETAIL = new Set(["warn", "cross"]);
   const markerLayer = L.layerGroup().addTo(map), detailLayer = L.layerGroup();
-  const popupHtml = (l) => { const d = detailFor(l); return `<div class="pop-mm">MM ${l.label}</div><div class="pop-title">${l.title}</div>${d ? `<div>${d}</div>` : ""}${l.next && !runnerOnly ? `<div class="pop-next">Next option: ${l.next} mi</div>` : ""}${l.ll ? "" : '<div class="pop-next">Pin approx. (placed by mile marker)</div>'}${locNav(l)}`; };
+  const popupHtml = (l) => { const d = detailFor(l); return `<div class="pop-mm">MM ${l.label}</div><div class="pop-title">${l.title}</div>${d ? `<div>${d}</div>` : ""}${hasNext(l) ? `<div class="pop-next">→ ${nextTxt(l.mm, false)}</div>` : ""}${l.ll ? "" : '<div class="pop-next">Pin approx. (placed by mile marker)</div>'}${locNav(l)}`; };
   LOC.forEach((l) => {
     const s = STYLE[l.kind];
     if (!s) return;
@@ -688,7 +706,7 @@
       const cm = Math.max(0, Math.min(START, mm));
       const c = CH.find((x) => cm <= x.from + 0.01 && cm > x.to) || CH[0];
       const near = nearestStop(cm, LOC.filter((l) => l.chapter === c.id && l.kind !== "land"));
-      jumpHits.push({ mm: cm, id: near ? near.id : null, html: `<b>MM ${cm}</b><span>${c.title}${near ? ` · nearest: ${near.title}` : ""}</span>${mm > START ? `<small>Your race starts at MM ${fmtMM(START)}</small>` : ""}` });
+      jumpHits.push({ mm: cm, id: near ? near.id : null, html: `<b>MM ${cm}</b><span>${c.title}${near ? ` · nearest: ${near.title}` : ""}</span><small>→ ${mm > START ? `Your race starts at MM ${fmtMM(START)}` : nextTxt(cm, true)}</small>` });
     } else if (v.trim().length >= 2) {
       const q = v.trim().toLowerCase();
       LOC.filter((l) => l.kind !== "land" && (l.title + " " + l.text + (l.t ? " bathroom toilet wc" : "")).toLowerCase().includes(q))
@@ -859,13 +877,22 @@
       if (prevX === null || x - prevX >= 0.05) prevX = x;
       const paceTxt = legPace ? `${fmtPace(legPace)}<small>/mi</small>` : (x < 0.05 ? '<small>start</small>' : '<small>same spot</small>');
       const lv = leaveAt(l.mm);
+      // next stop: in your plan when this row is in it (or is the start), otherwise the next meet-up
+      let nxHtml = "", nxM = "";
+      if (hasNext(l)) {
+        const inPlan = usingPicks && ((pickable(l) && isPicked(l.key)) || l.kind === "start");
+        const t = inPlan ? nextPlanned(l.mm) : nextMeet(l.mm), tmm = t ? t.mm : 0;
+        const dur = etaAt(tmm) - lv, d = mi(l.mm - tmm), what = t ? `MM ${t.label}` : "finish";
+        nxHtml = `<b>${d}</b><small>${fmtDur(dur).replace(/^0h/, "")}${/^0h/.test(fmtDur(dur)) ? " min" : ""} · ${inPlan ? "plan → " : ""}${what}</small>`;
+        nxM = `<div class="n nx-m">→ ${inPlan ? "Next in our plan" : "Next meet-up"} <b>${d}</b> · ${what} · ${fmtDur(dur).replace(/^0h/, "")}${/^0h/.test(fmtDur(dur)) ? " min" : ""}</div>`;
+      }
       const cutHtml = c ? (c.hour * 60 - lv >= 0 ? `<div class="cutflag ok">LEAVE BY ${c.time.toUpperCase()} · ${fmtDur(c.hour * 60 - lv)} spare</div>` : `<div class="cutflag bad">LEAVES AFTER THE ${c.time.toUpperCase()} CUTOFF</div>`) : "";
       const [day, time] = fmtClock(a).split(" ");
       return `<tr class="k-${l.kind} ${MINOR.has(l.kind) || l.kind === "warn" || l.kind === "cross" ? "minor" : ""} ${c ? "cut-row" : ""}${pickable(l) && isPicked(l.key) ? " picked" : ""}">
-        <td><span class="mm">${l.label}</span></td><td>${runnerOnly ? "" : l.next || ""}</td>
+        <td><span class="mm">${l.label}</span></td><td class="nxt">${nxHtml}</td>
         <td><div class="eta ${isNight(a) ? "night" : ""}">${time}<small>${day} · +${fmtDur(a - startAbs)}</small>${spm && lv > a ? `<small class="leave">leave ${fmtClock(lv).split(" ")[1]}</small>` : ""}<small class="pace-m">${legPace ? `${fmtPace(legPace)}/mi pace` : ""}</small></div></td>
         <td class="pace">${paceTxt}</td>
-        <td><div class="t">${l.title}${chipsFor(l)}</div>${d ? `<div class="d">${d}</div>` : ""}${cutHtml}${locNav(l, true)}${mineHtml(l)}</td></tr>`;
+        <td><div class="t">${l.title}${chipsFor(l)}</div>${d ? `<div class="d">${d}</div>` : ""}${cutHtml}${nxM}${locNav(l, true)}${mineHtml(l)}</td></tr>`;
     }).join("") : `<tr><td colspan="5" class="empty">${plan.rows === "mine" ? "No stops in your plan yet. Switch to Meet-ups and tap ☆ Add to plan." : "No stops match."}</td></tr>`;
     $("myCount").textContent = usingPicks ? `${picks.length} stop${picks.length === 1 ? "" : "s"} picked` : "No stops picked yet";
     queueShare();
@@ -893,6 +920,7 @@
       else m.outerHTML = mineHtml(l);
     });
     document.querySelectorAll(".stop[data-id]").forEach((li) => { const l = LOC[+li.dataset.id]; li.classList.toggle("picked", pickable(l) && isPicked(l.key)); });
+    refreshNext();
     emphasize(emphasized);
   }
   function planChanged() { saveMy(); syncMine(); renderPlanner(); }
