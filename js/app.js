@@ -44,6 +44,9 @@
       text: "50-milers do NOT park here. Park in the Winn‑Dixie lot only, just north of the traffic light on the OCEAN side, and walk across at the light. No exceptions.", rtext: "" },
     "50k": { mm: 31, kind: "start", title: "50K start — Lower Keys Chamber of Commerce", rtext: "" },
   };
+  // stable per-location keys for saved/shared plans: the mile marker, plus _1, _2… for repeats
+  const seenMM = {};
+  window.LOCATIONS.forEach((l) => { const k = String(l.mm); seenMM[k] = (seenMM[k] || 0) + 1; l.key = seenMM[k] > 1 ? `${k}_${seenMM[k] - 1}` : k; });
   const LOC = window.LOCATIONS.filter((l) => inRace(l.mm) && fits(locTags(l))).map((l) => {
     const o = Object.assign({}, l, { text: strip100(l.text), rtext: strip100(l.rtext) });
     const ov = OVERRIDE[S.race];
@@ -51,6 +54,18 @@
     return o;
   });
   LOC.forEach((l, i) => (l.id = i));
+  const LOCBYKEY = {}; LOC.forEach((l) => { if (!LOCBYKEY[l.key]) LOCBYKEY[l.key] = l; });
+  const pickable = (l) => l.meet && l.kind !== "start" && l.kind !== "finish" && l.mm < START - 0.05;
+
+  // ---- your own plan: picked crew stops + notes, saved per race on this device, shareable by link
+  const MYKEY = "myplan-" + S.race;
+  const my = Object.assign({ stops: {}, notes: "" }, store.get(MYKEY, {}));
+  const saveMy = () => store.set(MYKEY, my);
+  const isPicked = (k) => !!(my.stops[k] && my.stops[k].on);
+  const noteOf = (k) => (my.stops[k] && my.stops[k].note) || "";
+  const pickedLocs = () => LOC.filter((l) => pickable(l) && isPicked(l.key));
+  const sharedCode = location.hash.startsWith("#plan=") ? location.hash.slice(6) : null;
+  if (sharedCode) history.replaceState(null, "", location.pathname + location.search);
   const CH = window.CHAPTERS.filter((c) => c.to < START - 0.5).map((c) => Object.assign({}, c, { from: Math.min(c.from, START) }));
   LOC.forEach((l) => (l.chapter = (CH.find((c) => l.mm <= c.from + 0.01 && l.mm > c.to) || {}).id));
 
@@ -220,11 +235,16 @@
   }
   const locNav = (l, compact) => (navigable(l) ? navHtml(locLL(l), !l.ll, compact) : "");
 
+  function mineHtml(l) {
+    if (!pickable(l)) return "";
+    const on = isPicked(l.key), note = noteOf(l.key);
+    return `<div class="mine" data-key="${l.key}"><button type="button" class="pick-btn${on ? " on" : ""}" data-pick="${l.key}" aria-pressed="${on}">${on ? "★ In our plan" : "☆ Add to plan"}</button>${note ? "" : `<button type="button" class="note-add" data-note-open="${l.key}">+ Note</button>`}<textarea class="my-note" data-note="${l.key}" rows="2" placeholder="Our plan here: shoes, ice, 2 bottles…" aria-label="Note for MM ${l.label}"${note ? "" : " hidden"}>${esc(note)}</textarea></div>`;
+  }
   function stopLi(l) {
     const d = detailFor(l);
-    return `<li class="stop k-${l.kind} ${MINOR.has(l.kind) ? "minor" : ""}" data-id="${l.id}" tabindex="0">
+    return `<li class="stop k-${l.kind} ${MINOR.has(l.kind) ? "minor" : ""}${isPicked(l.key) ? " picked" : ""}" data-id="${l.id}" tabindex="0">
       <span class="mm">${l.label}</span>
-      <div><div class="t">${l.title}${chipsFor(l)}</div>${d ? `<div class="d">${d}</div>` : ""}${l.next && !runnerOnly ? `<div class="n">Next option: ${l.next} mi</div>` : ""}${locNav(l, true)}</div></li>`;
+      <div><div class="t">${l.title}${chipsFor(l)}</div>${d ? `<div class="d">${d}</div>` : ""}${l.next && !runnerOnly ? `<div class="n">Next option: ${l.next} mi</div>` : ""}${locNav(l, true)}${mineHtml(l)}</div></li>`;
   }
 
   function courseSection() {
@@ -234,6 +254,7 @@
       <div class="card card-intro"><p class="kicker">Mile by mile</p><h2>Your course</h2>
       <p>${CH.length} sections from ${R.startPlace} to Key West. Each one starts with what can get you penalized, then lists its stops.</p>
       <div class="legend">${legend.map(([k, t]) => `<span><i class="lg ${k}"></i>${t}</span>`).join("")}</div>
+      <p>Tap <b>☆ Add to plan</b> on the meet-ups you'll use and add notes. The planner and map pick them up, and you can share the plan with your ${S.role === "runner" ? "crew" : "runner and crew"}.</p>
       <p class="muted">Most pins are matched to the actual place. Pins marked "approx." are placed by mile marker. On the ground, follow the written directions.</p></div></div>`;
     const chapters = CH.map((c, i) => {
       const alerts = c.alerts.filter((a) => fits(a[2]));
@@ -262,9 +283,15 @@
         <label>Avg min per crew stop<span class="hhmm"><input type="number" id="pStop" min="0" max="60" step="1" inputmode="numeric" aria-label="average minutes per crew stop" />min</span></label>
         <label>Pacing<select id="pFade"><option value="0">Even pace</option><option value="0.15">Some slow-down (+15%)</option><option value="0.3">Big slow-down (+30%)</option></select></label>
       </form>
+      <div class="myplan" id="myPlan">
+        <div class="myplan-head"><h3 class="sub-title">Your crew plan</h3><span class="myplan-count" id="myCount"></span></div>
+        <p class="muted">Tap ☆ on a meet-up (in this table or the Course section) to add it, then add notes. Saved on this device. Share it so your runner and crew all have the same plan, with these ETA settings.</p>
+        <label class="myplan-notes">General notes<textarea id="myNotes" rows="3" placeholder="Phone numbers, who drives when, gear in which bag…"></textarea></label>
+        <div class="myplan-actions"><button type="button" class="btn" id="shareBtn">Share plan</button><button type="button" class="btn ghost" id="copyPlanBtn">Copy as text</button><button type="button" class="btn ghost" id="clearPlanBtn">Clear</button></div>
+      </div>
       <div class="plan-summary" id="planSummary"></div>
       <div class="table-tools">
-        <div class="seg" role="group" aria-label="Rows"><button data-rows="meet">Meet-ups</button><button data-rows="all">Everything</button></div>
+        <div class="seg" role="group" aria-label="Rows"><button data-rows="mine">Our plan</button><button data-rows="meet">Meet-ups</button><button data-rows="all">Everything</button></div>
         <input type="search" id="tSearch" placeholder="Search: bathrooms, timing, Publix…" aria-label="Search stops" />
       </div>
       <div class="table-wrap"><table class="stops" id="stopsTable"><thead><tr><th>MM</th><th>Next</th><th>ETA</th><th title="Average pace needed over the stretch since the row above">Pace</th><th>Location</th></tr></thead><tbody></tbody></table></div>
@@ -371,7 +398,7 @@
   LOC.forEach((l) => {
     const s = STYLE[l.kind];
     if (!s) return;
-    l.baseR = s[0];
+    l.baseR = s[0]; l.baseColor = s[2];
     l.marker = L.circleMarker(locLL(l), { radius: s[0], color: s[2], weight: 2, fillColor: s[1], fillOpacity: 1 })
       .bindPopup(popupHtml(l), { maxWidth: 290, autoPanPaddingTopLeft: [20, topbarH() + 10] });
     (DETAIL.has(l.kind) ? detailLayer : markerLayer).addLayer(l.marker);
@@ -383,8 +410,10 @@
     LOC.forEach((l) => {
       if (!l.marker) return;
       const on = !chId || l.chapter === chId;
-      l.marker.setStyle({ fillOpacity: on ? 1 : 0.45, opacity: on ? 1 : 0.45, weight: far ? 1 : 2 });
-      l.marker.setRadius(far ? Math.max(2.5, l.baseR - 3) : chId && on ? l.baseR + 2 : l.baseR);
+      const pk = pickable(l) && isPicked(l.key);
+      l.marker.setStyle({ fillOpacity: on ? 1 : 0.45, opacity: on ? 1 : 0.45, weight: pk ? (far ? 2.5 : 3.5) : far ? 1 : 2, color: pk ? "#f7941d" : l.baseColor });
+      l.marker.setRadius((far ? Math.max(2.5, l.baseR - 3) : chId && on ? l.baseR + 2 : l.baseR) + (pk ? 1.5 : 0));
+      if (pk) l.marker.bringToFront();
     });
   }
   // Defer to the next tick: during the very first setView, zoomend fires before the SVG renderer has
@@ -487,7 +516,7 @@
   document.querySelectorAll(".panel").forEach((p) => panelIo.observe(p));
 
   main.addEventListener("click", (e) => {
-    if (e.target.closest(".nav-row")) return; // directions / copy buttons
+    if (e.target.closest(".nav-row, .mine")) return; // directions / copy / plan controls
     const li = e.target.closest(".stop");
     if (!li) return;
     const l = LOC[+li.dataset.id];
@@ -769,6 +798,7 @@
   const fmtDur = (m) => { m = Math.round(m); return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`; };
   const isNight = (a) => { const mod = a % 1440; return mod >= 19.5 * 60 || mod < 6 * 60; };
 
+  let lastPlan = null;
   function renderPlanner() {
     const [sh, sm] = (plan.start || R.start).split(":").map(Number);
     const startAbs = sh * 60 + sm;
@@ -778,8 +808,8 @@
     const f = +plan.fade, D = START;
     // crew stops: every meet-up in this view between start and finish, at the average dwell time
     const spm = Math.max(0, Math.min(60, +plan.stop || 0));
-    const stopXs = [];
-    LOC.filter((l) => l.meet && l.kind !== "start" && l.kind !== "finish" && l.mm < D - 0.05)
+    const stopXs = [], picks = pickedLocs(), usingPicks = picks.length > 0;
+    (usingPicks ? picks : LOC.filter(pickable))
       .map((l) => D - l.mm).sort((p, q) => p - q)
       .forEach((x) => { if (!stopXs.length || x - stopXs[stopXs.length - 1] > 0.05) stopXs.push(x); });
     const stopTotal = stopXs.length * spm;
@@ -800,7 +830,7 @@
       `<span class="pill">${spm ? "Moving pace" : "Avg pace"} <b>${fmtPace(moving / D)}</b>/mi${f ? ` · starts ${fmtPace(paceAt(0))} → ends ${fmtPace(paceAt(D))}` : ""}</span>`,
       ...(spm ? [total - stopTotal < D * 4
         ? `<span class="pill bad">${stopXs.length} stops × ${spm} min doesn't fit in the goal time</span>`
-        : `<span class="pill">⏱ ${stopXs.length} crew stops × ${spm} min = <b>${fmtDur(stopTotal)}</b> stopped</span>`] : []),
+        : `<span class="pill">⏱ ${stopXs.length} ${usingPicks ? "planned" : "crew"} stops × ${spm} min = <b>${fmtDur(stopTotal)}</b> stopped${usingPicks ? "" : " (every meet-up: pick yours with ☆)"}</span>`] : []),
       finishDur <= R.limit * 60 ? `<span class="pill good">Within the ${R.limit}h limit</span>` : `<span class="pill bad">Over the ${R.limit}h limit</span>`];
     let nf = null, nt = null;
     for (let mm = D; mm >= 0; mm -= 0.1) { const a = etaAt(mm); if (a >= 1170 && a < 1800) { if (nf === null) nf = mm; nt = mm; } }
@@ -814,7 +844,9 @@
 
     const q = $("tSearch").value.trim().toLowerCase();
     const cut = {}; if (S.race === "100") window.CUTOFFS.forEach((c) => (cut[c.mm] = c));
+    lastPlan = { etaAt, leaveAt, startAbs, spm, total };
     const rows = LOC.filter((l) => {
+      if (plan.rows === "mine" && !((pickable(l) && isPicked(l.key)) || l.kind === "start" || l.kind === "finish" || (l.kind === "timing" && cut[l.mm]))) return false;
       if (plan.rows === "meet" && !(l.meet || l.kind === "finish" || l.kind === "timing" || l.kind === "start")) return false;
       if (q && !(l.title + " " + l.text + " " + l.label + (l.t ? " bathroom toilet wc" : "") + " " + l.kind).toLowerCase().includes(q)) return false;
       return true;
@@ -829,12 +861,14 @@
       const lv = leaveAt(l.mm);
       const cutHtml = c ? (c.hour * 60 - lv >= 0 ? `<div class="cutflag ok">LEAVE BY ${c.time.toUpperCase()} · ${fmtDur(c.hour * 60 - lv)} spare</div>` : `<div class="cutflag bad">LEAVES AFTER THE ${c.time.toUpperCase()} CUTOFF</div>`) : "";
       const [day, time] = fmtClock(a).split(" ");
-      return `<tr class="k-${l.kind} ${MINOR.has(l.kind) || l.kind === "warn" || l.kind === "cross" ? "minor" : ""} ${c ? "cut-row" : ""}">
+      return `<tr class="k-${l.kind} ${MINOR.has(l.kind) || l.kind === "warn" || l.kind === "cross" ? "minor" : ""} ${c ? "cut-row" : ""}${pickable(l) && isPicked(l.key) ? " picked" : ""}">
         <td><span class="mm">${l.label}</span></td><td>${runnerOnly ? "" : l.next || ""}</td>
         <td><div class="eta ${isNight(a) ? "night" : ""}">${time}<small>${day} · +${fmtDur(a - startAbs)}</small>${spm && lv > a ? `<small class="leave">leave ${fmtClock(lv).split(" ")[1]}</small>` : ""}<small class="pace-m">${legPace ? `${fmtPace(legPace)}/mi pace` : ""}</small></div></td>
         <td class="pace">${paceTxt}</td>
-        <td><div class="t">${l.title}${chipsFor(l)}</div>${d ? `<div class="d">${d}</div>` : ""}${cutHtml}${locNav(l, true)}</td></tr>`;
-    }).join("") : `<tr><td colspan="5" class="empty">No stops match.</td></tr>`;
+        <td><div class="t">${l.title}${chipsFor(l)}</div>${d ? `<div class="d">${d}</div>` : ""}${cutHtml}${locNav(l, true)}${mineHtml(l)}</td></tr>`;
+    }).join("") : `<tr><td colspan="5" class="empty">${plan.rows === "mine" ? "No stops in your plan yet. Switch to Meet-ups and tap ☆ Add to plan." : "No stops match."}</td></tr>`;
+    $("myCount").textContent = usingPicks ? `${picks.length} stop${picks.length === 1 ? "" : "s"} picked` : "No stops picked yet";
+    queueShare();
   }
   function readPlanner() {
     Object.assign(plan, { start: $("pStart").value, h: $("pHours").value, m: $("pMins").value, fade: $("pFade").value, stop: $("pStop").value });
@@ -850,12 +884,147 @@
     plan.rows = b.dataset.rows; store.set("plan-" + S.race, plan); syncSeg(); renderPlanner();
   });
 
+  // ================================================================ your plan: pick, note, share
+  const plainText = (h) => { const d = document.createElement("div"); d.innerHTML = h; return d.textContent.replace(/\s+/g, " ").trim(); };
+  function syncMine() {
+    document.querySelectorAll(".mine").forEach((m) => {
+      const l = LOCBYKEY[m.dataset.key]; if (!l) return;
+      if (m.contains(document.activeElement)) { const on = isPicked(l.key), b = m.querySelector(".pick-btn"); b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); b.textContent = on ? "★ In our plan" : "☆ Add to plan"; }
+      else m.outerHTML = mineHtml(l);
+    });
+    document.querySelectorAll(".stop[data-id]").forEach((li) => { const l = LOC[+li.dataset.id]; li.classList.toggle("picked", pickable(l) && isPicked(l.key)); });
+    emphasize(emphasized);
+  }
+  function planChanged() { saveMy(); syncMine(); renderPlanner(); }
+  document.addEventListener("click", (e) => {
+    const p = e.target.closest("[data-pick]");
+    if (p) {
+      e.stopPropagation();
+      const k = p.dataset.pick, st = my.stops[k] || (my.stops[k] = {});
+      st.on = !st.on; if (!st.on) delete st.on; if (!st.on && !st.note) delete my.stops[k];
+      planChanged();
+      if (isPicked(k)) say(`MM ${LOCBYKEY[k].label} added to your plan`);
+      return;
+    }
+    const n = e.target.closest("[data-note-open]");
+    if (n) {
+      e.stopPropagation();
+      const m = n.closest(".mine"), ta = m.querySelector("textarea");
+      n.remove(); ta.hidden = false; ta.focus();
+    }
+  });
+  let noteT = null;
+  document.addEventListener("input", (e) => {
+    const ta = e.target.closest("textarea[data-note]");
+    if (!ta) return;
+    const k = ta.dataset.note, st = my.stops[k] || (my.stops[k] = {});
+    st.note = ta.value; if (!st.note) delete st.note; if (!st.on && !st.note) delete my.stops[k];
+    saveMy();
+    document.querySelectorAll(`textarea[data-note="${k}"]`).forEach((t) => { if (t !== ta) { t.value = ta.value; t.hidden = false; } });
+    clearTimeout(noteT); noteT = setTimeout(queueShare, 400);
+  });
+  $("myNotes").value = my.notes || "";
+  $("myNotes").addEventListener("input", (e) => { my.notes = e.target.value; saveMy(); clearTimeout(noteT); noteT = setTimeout(queueShare, 400); });
+
+  // share links carry the plan in the #hash, so it never reaches a server
+  const b64u = (u8) => { let t = ""; u8.forEach((b) => (t += String.fromCharCode(b))); return btoa(t).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
+  const unb64u = (t) => Uint8Array.from(atob(t.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+  async function packPlan() {
+    const data = { v: 1, r: S.race, s: Object.entries(my.stops).map(([k, v]) => (v.note ? [k, v.on ? 1 : 0, v.note] : [k, v.on ? 1 : 0])),
+      n: my.notes || "", p: { start: plan.start, h: plan.h, m: plan.m, stop: plan.stop, fade: plan.fade } };
+    const json = JSON.stringify(data);
+    try {
+      if (window.CompressionStream) {
+        const cs = new Blob([json]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+        return "z" + b64u(new Uint8Array(await new Response(cs).arrayBuffer()));
+      }
+    } catch (e) { /* plain below */ }
+    return "j" + b64u(new TextEncoder().encode(json));
+  }
+  async function unpackPlan(code) {
+    const u8 = unb64u(code.slice(1));
+    const json = code[0] === "z"
+      ? await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text()
+      : new TextDecoder().decode(u8);
+    return JSON.parse(json);
+  }
+  // build the link ahead of time: phones only allow share/copy right inside the tap
+  let shareUrl = null, shareT = null;
+  function queueShare() { clearTimeout(shareT); shareT = setTimeout(async () => { shareUrl = location.origin + location.pathname + "#plan=" + (await packPlan()); }, 150); }
+  $("shareBtn").addEventListener("click", async () => {
+    const url = shareUrl || location.origin + location.pathname + "#plan=" + (await packPlan());
+    const title = `Our KEYS100 ${R.name} plan`;
+    if (navigator.share && window.matchMedia("(pointer: coarse)").matches) {
+      try { await navigator.share({ title, text: `${title}. Open to load it into your guide:`, url }); return; } catch (e) { if (e.name === "AbortError") return; }
+    }
+    if (await copyText(url)) say("Link copied. Text or email it to your crew.");
+    else window.prompt("Copy this link and send it to your crew:", url);
+  });
+  function planText() {
+    const lp = lastPlan, out = [`KEYS100 ${R.name}: our plan`];
+    if (lp) out.push(`Start ${fmtClock(lp.startAbs).split(" ")[1]} Sat · goal ${fmtDur(lp.total)} · ${lp.spm} min per stop`);
+    if (my.notes) out.push("", my.notes.trim());
+    const picks = pickedLocs();
+    out.push("", picks.length ? "Stops:" : "No stops picked yet.");
+    picks.forEach((l) => {
+      out.push(`MM ${l.label}${lp ? ` · ${fmtClock(lp.etaAt(l.mm))}` : ""} · ${plainText(l.title)}`);
+      if (noteOf(l.key)) out.push(`   → ${noteOf(l.key)}`);
+      if (showNav) out.push(`   ${fmtLL(locLL(l))}`);
+    });
+    if (shareUrl) out.push("", "Open in the guide: " + shareUrl);
+    return out.join("\n");
+  }
+  $("copyPlanBtn").addEventListener("click", async () => {
+    const t = planText();
+    if (await copyText(t)) say("Plan copied as text. Paste it into a note or message.");
+    else window.prompt("Copy your plan:", t);
+  });
+  $("clearPlanBtn").addEventListener("click", () => {
+    if (!window.confirm("Clear your picked stops and notes on this device?")) return;
+    my.stops = {}; my.notes = ""; $("myNotes").value = ""; planChanged(); say("Plan cleared");
+  });
+
+  // opening a shared link: load it, asking first if it would replace a different plan
+  const askDlg = document.createElement("dialog");
+  askDlg.className = "setup ask";
+  document.body.appendChild(askDlg);
+  function askReplace(n) {
+    askDlg.innerHTML = `<form method="dialog" class="setup-form"><h2>Load the shared plan?</h2>
+      <p>This link has a plan with <b>${n} stop${n === 1 ? "" : "s"}</b>. Loading it replaces the plan already saved on this device.</p>
+      <div class="setup-actions"><button value="keep" class="btn ghost">Keep mine</button><button value="load" class="btn">Load shared plan</button></div></form>`;
+    return new Promise((res) => { askDlg.addEventListener("close", () => res(askDlg.returnValue === "load"), { once: true }); askDlg.showModal(); });
+  }
+  async function importPlan(code) {
+    let d;
+    try { d = await unpackPlan(code); } catch (e) { say("That plan link looks broken. Ask for a fresh one."); return; }
+    const inc = {};
+    (d.s || []).forEach(([k, on, note]) => { const v = {}; if (on) v.on = true; if (note) v.note = note; if (on || note) inc[k] = v; });
+    const n = Object.values(inc).filter((v) => v.on).length;
+    const norm = (o) => JSON.stringify(Object.keys(o).sort().map((k) => [k, !!o[k].on, o[k].note || ""]));
+    const mine = Object.keys(my.stops).length || (my.notes || "").trim();
+    const same = norm(inc) === norm(my.stops) && (d.n || "") === (my.notes || "");
+    if (mine && !same && !(await askReplace(n))) { say("Kept your plan"); return; }
+    my.stops = inc; my.notes = d.n || ""; $("myNotes").value = my.notes;
+    if (d.p) {
+      Object.assign(plan, d.p); store.set("plan-" + S.race, plan);
+      $("pStart").value = plan.start; $("pHours").value = plan.h; $("pMins").value = plan.m; $("pFade").value = plan.fade; $("pStop").value = plan.stop;
+    }
+    plan.rows = "mine"; store.set("plan-" + S.race, plan); syncSeg();
+    planChanged();
+    scrollToPanel("planner");
+    say(`Plan loaded: ${n} stop${n === 1 ? "" : "s"}`);
+  }
+
   // ================================================================ init
   syncSeg();
   renderPlanner();
   map.fitBounds(raceBounds, padding());
   activate(steps[0]);
   if ("scrollRestoration" in history && location.hash) history.scrollRestoration = "manual";
-  setTimeout(() => { if (!restoreFromHash()) offerResume(); booted = true; }, 60);
+  setTimeout(() => {
+    if (sharedCode) importPlan(sharedCode);
+    else if (!restoreFromHash()) offerResume();
+    booted = true;
+  }, 60);
   window.addEventListener("resize", () => map.invalidateSize());
 })();

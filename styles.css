@@ -572,3 +572,24 @@ dialog.jump-dlg::backdrop { background: rgba(6,22,38,.55); backdrop-filter: blur
   .eta .pace-m { display: block; color: var(--sea); font-weight: 700; }
 }
 .eta small.leave { color: var(--ink-2); font-weight: 600; }
+
+/* ---------------------------------------------------------------- your plan */
+.mine { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 7px; }
+.pick-btn, .note-add { font: inherit; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 4px 10px; cursor: pointer; border: 1.5px solid var(--line); background: #fff; color: var(--ink-2); }
+.pick-btn:hover, .note-add:hover { border-color: var(--orange); }
+.pick-btn.on { background: var(--orange); border-color: var(--orange); color: #fff; }
+.my-note { flex-basis: 100%; width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; line-height: 1.4; padding: 7px 9px; border: 1.5px solid #f3c98f; border-radius: 8px; background: #fffaf2; color: var(--ink); resize: vertical; min-height: 38px; }
+.my-note:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px rgba(247,148,29,.15); }
+.stop.picked .mm { box-shadow: 0 0 0 2px var(--orange); }
+.stop.picked { background: #fffaf2; }
+.stops tr.picked td { background: #fffaf2; }
+.stops tr.picked .mm { box-shadow: 0 0 0 2px var(--orange); }
+.myplan { border: 1.5px solid #f3d7ae; background: #fffaf2; border-radius: 14px; padding: 16px 18px; margin: 18px 0 6px; }
+.myplan-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.myplan-head .sub-title { margin: 0; }
+.myplan-count { font-size: 13px; font-weight: 700; color: var(--orange); }
+.myplan > .muted { margin: 6px 0 12px; font-size: 13.5px; }
+.myplan-notes { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.myplan-notes textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 6px; font: inherit; font-size: 14px; text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--ink); padding: 9px 11px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; resize: vertical; }
+.myplan-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.myplan-actions .btn { padding: 9px 16px; font-size: 14px; }
