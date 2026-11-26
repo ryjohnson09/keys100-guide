@@ -55,7 +55,7 @@
   });
   LOC.forEach((l, i) => (l.id = i));
   const LOCBYKEY = {}; LOC.forEach((l) => { if (!LOCBYKEY[l.key]) LOCBYKEY[l.key] = l; });
-  const pickable = (l) => l.meet && l.kind !== "start" && l.kind !== "finish" && l.mm < START - 0.05;
+  const pickable = (l) => !!l.meet && l.kind !== "start" && l.kind !== "finish" && l.mm < START - 0.05;
 
   // ---- your own plan: picked crew stops + notes, saved per race on this device, shareable by link
   const MYKEY = "myplan-" + S.race;
@@ -946,7 +946,7 @@
       if (m.contains(document.activeElement)) { const on = isPicked(l.key), b = m.querySelector(".pick-btn"); b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); b.textContent = on ? "★ In our plan" : "☆ Add to plan"; }
       else m.outerHTML = mineHtml(l);
     });
-    document.querySelectorAll(".stop[data-id]").forEach((li) => { const l = LOC[+li.dataset.id]; li.classList.toggle("picked", pickable(l) && isPicked(l.key)); });
+    document.querySelectorAll(".stop[data-id]").forEach((li) => { const l = LOC[+li.dataset.id]; li.classList.toggle("picked", !!(pickable(l) && isPicked(l.key))); });
     refreshNext();
     drawPlanPins();
   }
