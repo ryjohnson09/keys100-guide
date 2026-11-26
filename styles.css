@@ -639,3 +639,8 @@ body.sun .pick-btn.on { background: var(--orange); color: #000; }
 body.sun .eta small, body.sun .nx, body.sun .nx-plan { color: #000; }
 body.sun .stops thead th { background: #000; color: #fff; }
 body.sun .leaflet-popup-content-wrapper { border: 2px solid #000; color: #000; }
+
+/* ★ pins for stops in your plan */
+.plan-pin { width: 24px; height: 24px; border-radius: 50%; background: var(--orange); border: 2.5px solid #fff; color: #fff; font-size: 14px; line-height: 19px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,.45); cursor: pointer; }
+.lg.plan { background: var(--orange); position: relative; }
+.lg.plan::after { content: "★"; position: absolute; inset: 0; color: #fff; font-size: 8px; line-height: 10px; text-align: center; }

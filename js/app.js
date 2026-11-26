@@ -267,7 +267,7 @@
 
   function courseSection() {
     const legend = [["meet", "Meet-up"], S.team !== "solo" && ["team", "Team exchange"], S.team !== "team" && ["indiv", "Solo crew only"],
-      ["timing", "Timing"], ["warn", "Caution"], S.role !== "crew" && ["cross", "You cross"]].filter(Boolean);
+      ["timing", "Timing"], ["warn", "Caution"], S.role !== "crew" && ["cross", "You cross"], ["plan", "In your plan"]].filter(Boolean);
     const intro = `<div class="step" data-view="overview" data-hud="The course">
       <div class="card card-intro"><p class="kicker">Mile by mile</p><h2>Your course</h2>
       <p>${CH.length} sections from ${R.startPlace} to Key West. Each one starts with what can get you penalized, then lists its stops.</p>
@@ -448,15 +448,22 @@
     LOC.forEach((l) => {
       if (!l.marker) return;
       const on = !chId || l.chapter === chId;
-      const pk = pickable(l) && isPicked(l.key);
-      l.marker.setStyle({ fillOpacity: on ? 1 : 0.45, opacity: on ? 1 : 0.45, weight: pk ? (far ? 2.5 : 3.5) : far ? 1 : 2, color: pk ? "#f7941d" : l.baseColor });
-      l.marker.setRadius((far ? Math.max(2.5, l.baseR - 3) : chId && on ? l.baseR + 2 : l.baseR) + (pk ? 1.5 : 0));
-      if (pk) l.marker.bringToFront();
+      l.marker.setStyle({ fillOpacity: on ? 1 : 0.45, opacity: on ? 1 : 0.45, weight: far ? 1 : 2 });
+      l.marker.setRadius(far ? Math.max(2.5, l.baseR - 3) : chId && on ? l.baseR + 2 : l.baseR);
     });
   }
   // Defer to the next tick: during the very first setView, zoomend fires before the SVG renderer has
   // bounds, and touching circle markers then makes Leaflet throw (seen on wide screens, where the
   // 50 mile / 50K course opens at zoom >= 11).
+  // stops in your plan get their own ★ pin on top, so they can't be mistaken for other markers
+  const planLayer = L.layerGroup().addTo(map);
+  function drawPlanPins() {
+    planLayer.clearLayers();
+    pickedLocs().forEach((l) => L.marker(locLL(l), { keyboard: false, zIndexOffset: 1500, title: `MM ${l.label} · in your plan`,
+      icon: L.divIcon({ className: "", iconSize: [24, 24], iconAnchor: [12, 12], html: '<div class="plan-pin" aria-hidden="true">★</div>' }) })
+      .on("click", () => l.marker && l.marker.openPopup()).addTo(planLayer));
+  }
+  drawPlanPins();
   map.on("zoomend", () => setTimeout(() => {
     emphasize(emphasized);
     if (map.getZoom() >= 11) detailLayer.addTo(map); else detailLayer.remove();
@@ -941,7 +948,7 @@
     });
     document.querySelectorAll(".stop[data-id]").forEach((li) => { const l = LOC[+li.dataset.id]; li.classList.toggle("picked", pickable(l) && isPicked(l.key)); });
     refreshNext();
-    emphasize(emphasized);
+    drawPlanPins();
   }
   function planChanged() { saveMy(); syncMine(); renderPlanner(); }
   document.addEventListener("click", (e) => {
